@@ -62,7 +62,7 @@ The plugin tracks player statistics including:
 
 ## Support
 
-For issues, bug reports, or feature requests, please create an issue on our GitHub repository.
+For issues, bug reports, or feature requests, please create an issue on the repository or DM @vortexunwanted on Discord!
 
 ## License
 
