@@ -1,0 +1,90 @@
+# Betting Settings
+betting:
+  min-bet: 10
+  max-bet: 10000
+  cooldown-ms: 2000
+
+# Table Settings
+table:
+  max-join-distance: 10.0
+  max-players: 4
+  table-material: GREEN_TERRACOTTA
+  chair-material: DARK_OAK_STAIRS
+
+# Card Display Settings
+display:
+  card:
+    scale: 0.35
+    spacing: 0.25
+    player:
+      height: 1.05
+      distance: 1.0
+    dealer:
+      height: 1.2
+      distance: 0.75
+
+# Sound Settings
+sounds:
+  enabled: true
+  card-deal:
+    sound: BLOCK_WOODEN_BUTTON_CLICK_ON
+    volume: 1.0
+    pitch: 1.2
+  win:
+    sound: ENTITY_PLAYER_LEVELUP
+    volume: 1.0
+    pitch: 1.0
+  lose:
+    sound: ENTITY_VILLAGER_NO
+    volume: 1.0
+    pitch: 1.0
+  push:
+    sound: BLOCK_NOTE_BLOCK_PLING
+    volume: 1.0
+    pitch: 1.0
+
+# Particle Settings
+particles:
+  enabled: true
+  win:
+    type: HAPPY_VILLAGER
+    count: 20
+    spread: 0.5
+    height: 2.0
+  lose:
+    type: ANGRY_VILLAGER
+    count: 10
+    spread: 0.5
+    height: 2.0
+
+# Messages
+messages:
+  prefix: "&8[&6Blackjack&8] &r"
+  no-permission: "&cYou don't have permission to do that!"
+  table-created: "&aBlackjack table created!"
+  table-removed: "&cBlackjack table removed!"
+  already-at-table: "&cYou are already at a table! Use /leave to leave your current table."
+  no-table-nearby: "&cNo table found nearby!"
+  not-at-table: "&cYou're not at a table! Use /join near a table to play."
+  game-in-progress: "&cCannot perform this action during an active game!"
+  invalid-bet: "&cInvalid bet amount! Must be between %min_bet% and %max_bet%."
+  insufficient-funds: "&cYou don't have enough money to bet $%amount%!"
+  bet-cooldown: "&cPlease wait a moment before changing your bet again."
+  bet-set: "&aYour bet has been set to $%amount%!"
+  table-full: "&cThis table is full!"
+  too-far: "&cYou are too far from the table to join!"
+  no-seats: "&cNo available seats!"
+  join-error: "&cError joining table. Please try again."
+  game-started: "&aGame started! %player%'s turn."
+  your-turn: "&aIt's your turn!"
+  hand-value: "&aYour hand value: %value%"
+  dealer-card: "&aDealer's visible card: %card% | Value: %value%"
+  player-busts: "&c%player% busts!"
+  player-stands: "&a%player% stands at %value%!"
+  dealer-value: "&aDealer's final hand value: %value%"
+  player-wins: "&a%player% wins and gets back $%amount%!"
+  player-loses: "&c%player% loses their bet of $%amount%"
+  player-pushes: "&e%player% pushes and gets their bet of $%amount% back."
+  bet-refunded: "&aYour bet of $%amount% has been refunded."
+  error-refund: "&cAn error occurred while refunding your bet. Contact a staff member!"
+  error-payout: "&cAn error occurred processing your payout. Contact a staff member!"

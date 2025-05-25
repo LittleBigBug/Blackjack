@@ -1,0 +1,67 @@
+name: Blackjack
+version: 1.0
+main: com.vortex.blackjack.BlackjackPlugin
+description: A physical blackjack table game for Minecraft
+api-version: 1.21
+depend: [Essentials]
+
+commands:
+  blackjack:
+    description: Main command for the Blackjack plugin
+    usage: |
+      &8[&6Blackjack&8] &rAvailable Commands:
+      &e/createtable &7- Create a new blackjack table
+      &e/removetable &7- Remove the nearest table
+      &e/join &7- Join the nearest table
+      &e/leave &7- Leave your current table
+      &e/start &7- Start a new game
+      &e/hit &7- Take another card
+      &e/stand &7- End your turn
+      &e/bet <amount> &7- Place or change your bet
+      &e/stats &7- View your statistics
+    aliases: [bj]
+  createtable:
+    description: Create a new blackjack table
+    permission: blackjack.admin
+    aliases: [blackjack:createtable]
+  removetable:
+    description: Remove the nearest blackjack table
+    permission: blackjack.admin
+    aliases: [blackjack:removetable]
+  join:
+    description: Join the nearest blackjack table
+    permission: blackjack.play
+    aliases: [blackjack:join]
+  leave:
+    description: Leave your current blackjack table
+    permission: blackjack.play
+    aliases: [blackjack:leave]
+  start:
+    description: Start a new blackjack game
+    permission: blackjack.play
+    aliases: [blackjack:start]
+  hit:
+    description: Take another card in blackjack
+    permission: blackjack.play
+    aliases: [blackjack:hit]
+  stand:
+    description: End your turn in blackjack
+    permission: blackjack.play
+    aliases: [blackjack:stand]
+  bet:
+    description: Place or change your bet in blackjack
+    permission: blackjack.play
+    usage: /bet <amount>
+    aliases: [blackjack:bet]
+  stats:
+    description: View your blackjack statistics
+    permission: blackjack.play
+    aliases: [blackjack:stats]
+
+permissions:
+  blackjack.admin:
+    description: Allows creation and removal of blackjack tables
+    default: op
+  blackjack.play:
+    description: Allows playing blackjack
+    default: true
