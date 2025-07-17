@@ -11,17 +11,23 @@ table:
   table-material: GREEN_TERRACOTTA
   chair-material: DARK_OAK_STAIRS
 
-# Card Display Settings
+# Game Rules
+game:
+  hit-soft-17: false  # Whether dealer hits on soft 17
+  insurance-enabled: false  # Insurance betting (future feature)
+  double-down-enabled: true  # Double down betting (future feature)
+  split-enabled: false  # Pair splitting (future feature)
+  surrender-enabled: false  # Late surrender (future feature)
+
+# Card Display Settings (Original working system - minimal config)
 display:
   card:
     scale: 0.35
     spacing: 0.25
     player:
       height: 1.05
-      distance: 1.0
     dealer:
       height: 1.2
-      distance: 0.75
 
 # Sound Settings
 sounds:
@@ -57,6 +63,27 @@ particles:
     spread: 0.5
     height: 2.0
 
+# User Experience Settings
+ux:
+  auto-open-bet-gui: true      # Automatically open betting GUI when joining table
+  clickable-chat: true         # Enable clickable chat messages for actions
+  action-bar-controls: true    # Show action buttons in chat during turns
+  quick-bet-suggestions: true  # Show quick bet amounts in chat
+  smart-suggestions: true      # Context-aware command suggestions
+  
+  # Chat Management - Reduce spam and improve readability
+  chat:
+    compact-mode: true         # Use fewer, more informative messages
+    merge-similar: true        # Don't repeat the same message type
+    use-action-bar: true       # Show game status in action bar instead of chat
+    clear-on-new-game: false   # Clear chat when new game starts
+    max-recent-messages: 3     # Maximum recent messages to keep in chat
+    game-status-format: "compact"  # "compact" or "detailed"
+performance:
+  save-stats-interval: 300  # Save player stats every 5 minutes (in seconds)
+  cleanup-interval: 600     # Clean up old data every 10 minutes (in seconds)
+  max-concurrent-games: 10  # Maximum number of simultaneous games
+
 # Messages
 messages:
   prefix: "&8[&6Blackjack&8] &r"
@@ -83,8 +110,19 @@ messages:
   player-stands: "&a%player% stands at %value%!"
   dealer-value: "&aDealer's final hand value: %value%"
   player-wins: "&a%player% wins and gets back $%amount%!"
-  player-loses: "&c%player% loses their bet of $%amount%"
-  player-pushes: "&e%player% pushes and gets their bet of $%amount% back."
+  player-loses: "&c%player% loses their bet of $%amount%!"
+  player-pushes: "&e%player% pushes and gets their bet of $%amount% back!"
+  player-blackjack: "&6%player% got BLACKJACK and wins $%amount%!"
   bet-refunded: "&aYour bet of $%amount% has been refunded."
   error-refund: "&cAn error occurred while refunding your bet. Contact a staff member!"
   error-payout: "&cAn error occurred processing your payout. Contact a staff member!"
+  stats-header: "&6=== Blackjack Statistics ==="
+  stats-hands-won: "&eHands Won: &a%value%"
+  stats-hands-lost: "&eHands Lost: &c%value%"
+  stats-hands-pushed: "&eHands Pushed: &7%value%"
+  stats-blackjacks: "&eBlackjacks: &6%value%"
+  stats-busts: "&eBusts: &c%value%"
+  stats-win-rate: "&eWin Rate: &a%value%%"
+  stats-current-streak: "&eCurrent Streak: &b%value%"
+  stats-best-streak: "&eBest Streak: &a%value%"
+  stats-total-winnings: "&eTotal Winnings: &2$%value%"

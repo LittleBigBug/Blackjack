@@ -8,6 +8,7 @@ import com.vortex.blackjack.model.PlayerStats;
 import com.vortex.blackjack.table.BlackjackTable;
 import com.vortex.blackjack.table.TableManager;
 import com.vortex.blackjack.util.AsyncUtils;
+import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -21,35 +22,25 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Main plugin class - COMPLETELY REFACTORED!
- * 
- * BEFORE: 1270 lines of monolithic code
- * AFTER: ~400 lines of clean, organized code
- * 
- * Key improvements:
- * - Separated concerns into dedicated managers
- * - Individual commands for better UX (/bet, /hit, /stand)
- * - Modern Java patterns and thread-safe collections
- * - Proper error handling and resource cleanup
- * - Extensible architecture for future features
+ * Main plugin class - now much cleaner and focused!
  */
 public class BlackjackPlugin extends JavaPlugin implements Listener {
     
-    // Core managers - each handles a specific responsibility
+    // Core managers
     private ConfigManager configManager;
     private TableManager tableManager;
     private CommandManager commandManager;
     private AsyncUtils asyncUtils;
     private EconomyProvider economyProvider;
     
-    // Player data - thread-safe collections
+    // Player data
     private final Map<Player, Integer> playerBets = new ConcurrentHashMap<>();
-    private final Map<Player, Integer> playerPersistentBets = new ConcurrentHashMap<>(); // Keeps bet amount for "Play Again"
     private final Map<Player, Long> lastBetTime = new ConcurrentHashMap<>();
     private final Map<UUID, PlayerStats> playerStats = new ConcurrentHashMap<>();
     
@@ -83,26 +74,24 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         // Register events
         getServer().getPluginManager().registerEvents(this, this);
         
-        // Register commands - this enables individual commands like /bet, /hit, /stand
+        // Register commands
         commandManager.registerCommands();
         
         // Load tables from config
         tableManager.loadTablesFromConfig();
         
         getLogger().info("Blackjack plugin enabled successfully!");
-        getLogger().info("✅ Players can now use individual commands like /bet, /hit, /stand!");
-        getLogger().info("✅ Enhanced UX with clickable chat and GUI betting!");
+        getLogger().info("Players can now use individual commands like /bet, /hit, /stand!");
     }
     
     @Override
     public void onDisable() {
-        // Cancel all async tasks
         if (asyncUtils != null) {
             asyncUtils.cancelAllTasks();
         }
         
-        // Cleanup and refund bets
         if (tableManager != null) {
+            // Refund all bets for players not in active games
             refundAllBets();
             tableManager.cleanup();
         }
@@ -119,7 +108,6 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         
         // Remove from bet tracking
         lastBetTime.remove(player);
-        playerPersistentBets.remove(player);
         
         // Remove from table if they're at one
         if (tableManager != null) {
@@ -161,8 +149,6 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             }
         };
     }
-    
-    // Command handlers - clean and focused methods
     
     private boolean handleCreateTable(Player player) {
         if (!player.hasPermission("blackjack.admin")) {
@@ -215,16 +201,9 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     private boolean handleLeave(Player player) {
         BlackjackTable table = tableManager.getPlayerTable(player);
         if (table != null) {
-            // Send message to table before removing player
-            table.broadcastToTable("§e" + player.getName() + " left the table.");
-            
             table.removePlayer(player);
+            // Refund bet if not in active game
             refundPlayerBet(player);
-            
-            // Clear persistent bet when leaving
-            playerPersistentBets.remove(player);
-            
-            player.sendMessage("§aYou left the table.");
         } else {
             player.sendMessage(configManager.getMessage("not-at-table"));
         }
@@ -234,17 +213,6 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     private boolean handleStart(Player player) {
         BlackjackTable table = tableManager.getPlayerTable(player);
         if (table != null) {
-            // Auto-bet if player has a persistent bet amount but no current bet
-            Integer currentBet = playerBets.get(player);
-            Integer persistentBet = playerPersistentBets.get(player);
-            
-            if ((currentBet == null || currentBet == 0) && persistentBet != null && persistentBet > 0) {
-                // Attempt to place the persistent bet automatically
-                if (processBet(player, persistentBet)) {
-                    player.sendMessage("§aAuto-bet placed: $" + persistentBet);
-                }
-            }
-            
             table.startGame();
         } else {
             player.sendMessage(configManager.getMessage("not-at-table"));
@@ -301,7 +269,6 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             return true;
         }
         
-        // Use the new formatted messages from config
         player.sendMessage(configManager.getMessage("stats-header"));
         player.sendMessage(configManager.formatMessage("stats-hands-won", "value", stats.getHandsWon()));
         player.sendMessage(configManager.formatMessage("stats-hands-lost", "value", stats.getHandsLost()));
@@ -327,8 +294,6 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         player.sendMessage("§aConfiguration reloaded!");
         return true;
     }
-    
-    // Betting system - improved and thread-safe
     
     private boolean processBet(Player player, int amount) {
         // Validate bet amount
@@ -360,20 +325,8 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             // Taking more money
             if (economyProvider.subtract(player.getUniqueId(), BigDecimal.valueOf(difference))) {
                 playerBets.put(player, amount);
-                playerPersistentBets.put(player, amount); // Store for "Play Again"
                 lastBetTime.put(player, currentTime);
                 player.sendMessage(configManager.formatMessage("bet-set", "amount", amount));
-                
-                // Auto-start game if player is at table and no game in progress
-                BlackjackTable table = tableManager.getPlayerTable(player);
-                if (table != null && !table.isGameInProgress() && previousBet == 0) {
-                    // First bet placed, try to start game
-                    this.getServer().getScheduler().runTaskLater(this, () -> {
-                        if (table.canStartGame()) {
-                            table.startGame();
-                        }
-                    }, 20L); // 1 second delay to allow other players to bet
-                }
             } else {
                 player.sendMessage("§cFailed to process bet!");
             }
@@ -382,7 +335,6 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             int refund = -difference;
             if (economyProvider.add(player.getUniqueId(), BigDecimal.valueOf(refund))) {
                 playerBets.put(player, amount);
-                playerPersistentBets.put(player, amount); // Store for "Play Again"
                 lastBetTime.put(player, currentTime);
                 player.sendMessage("§aBet reduced to $" + amount + " and refunded $" + refund + "!");
             } else {
@@ -424,8 +376,6 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         }
         playerBets.clear();
     }
-    
-    // Player statistics system
     
     private void loadPlayerStats(Player player) {
         if (playerStats.containsKey(player.getUniqueId())) {
@@ -483,8 +433,8 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         player.sendMessage(configManager.getMessage("prefix") + "§rAvailable Commands:");
         
         if (player.hasPermission("blackjack.admin")) {
-            player.sendMessage("§e/bj createtable §7- Create a new blackjack table");
-            player.sendMessage("§e/bj removetable §7- Remove the nearest table");
+            player.sendMessage("§e/createtable §7- Create a new blackjack table");
+            player.sendMessage("§e/removetable §7- Remove the nearest table");
             player.sendMessage("§e/bj reload §7- Reload configuration");
         }
         
@@ -494,11 +444,10 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         player.sendMessage("§e/start §7- Start a new game");
         player.sendMessage("§e/hit §7- Take another card");
         player.sendMessage("§e/stand §7- End your turn");
-        player.sendMessage("§e/bj stats §7- View your statistics");
+        player.sendMessage("§e/stats §7- View your statistics");
         
         player.sendMessage("");
-        player.sendMessage("§a✨ TIP: Use individual commands like §e/bet§a, §e/hit§a, §e/stand §ainstead of §e/bj§a!");
-        player.sendMessage("§a✨ Type §e/bet §aalone to open the visual betting menu!");
+        player.sendMessage("§aTip: Use individual commands like §e/bet§a, §e/hit§a, §e/stand §ainstead of §e/bj§a!");
     }
     
     // Getters for managers (used by other classes)
@@ -509,6 +458,5 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     
     // Player data getters
     public Map<Player, Integer> getPlayerBets() { return playerBets; }
-    public Map<Player, Integer> getPlayerPersistentBets() { return playerPersistentBets; }
     public Map<UUID, PlayerStats> getPlayerStats() { return playerStats; }
 }
