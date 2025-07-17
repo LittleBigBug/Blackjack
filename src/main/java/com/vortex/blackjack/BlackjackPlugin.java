@@ -152,6 +152,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             case "start" -> handleStart(player);
             case "hit" -> handleHit(player);
             case "stand" -> handleStand(player);
+            case "doubledown" -> handleDoubleDown(player);
             case "bet" -> handleBet(player, args);
             case "stats" -> handleStats(player);
             case "reload" -> handleReload(player);
@@ -266,6 +267,16 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         BlackjackTable table = tableManager.getPlayerTable(player);
         if (table != null) {
             table.stand(player);
+        } else {
+            player.sendMessage(configManager.getMessage("not-at-table"));
+        }
+        return true;
+    }
+    
+    private boolean handleDoubleDown(Player player) {
+        BlackjackTable table = tableManager.getPlayerTable(player);
+        if (table != null) {
+            table.doubleDown(player);
         } else {
             player.sendMessage(configManager.getMessage("not-at-table"));
         }

@@ -36,6 +36,7 @@ public class BlackjackTable {
     private final Map<Player, List<Card>> playerHands = new ConcurrentHashMap<>();
     private final Map<Player, Integer> playerSeats = new ConcurrentHashMap<>();
     private final Set<Player> finishedPlayers = ConcurrentHashMap.newKeySet();
+    private final Set<Player> doubleDownPlayers = ConcurrentHashMap.newKeySet();
     private boolean gameInProgress = false;
     private Player currentPlayer;
     private List<Card> dealerHand = new ArrayList<>();
@@ -216,6 +217,7 @@ public class BlackjackTable {
             deck = new Deck();
             clearAllDisplays();
             finishedPlayers.clear();
+            doubleDownPlayers.clear();
             
             // Deal initial cards (2 per player)
             for (Player player : players) {
@@ -236,8 +238,8 @@ public class BlackjackTable {
             currentPlayer = players.get(0);
             broadcastTableMessage(ChatColor.GREEN + "Game started! " + ChatColor.AQUA + currentPlayer.getName() + "'s turn");
             
-            // Send interactive turn message
-            ChatUtils.sendGameActionBar(currentPlayer);
+            // Send interactive turn message (doubledown available on first turn)
+            ChatUtils.sendGameActionBar(currentPlayer, true);
         }
     }
     
@@ -271,8 +273,8 @@ public class BlackjackTable {
                 playWinSound(player);
                 nextTurn();
             } else {
-                // Send action buttons again
-                ChatUtils.sendGameActionBar(player);
+                // Send action buttons again (no doubledown after hitting)
+                ChatUtils.sendGameActionBar(player, false);
             }
         }
     }
@@ -289,6 +291,71 @@ public class BlackjackTable {
             finishedPlayers.add(player);
             int value = BlackjackEngine.calculateHandValue(playerHands.get(player));
             broadcastTableMessage(player.getName() + " " + ChatColor.BLUE + "stands" + ChatColor.RESET + " with " + formatHandValue(value));
+            nextTurn();
+        }
+    }
+    
+    /**
+     * Player doubles down (doubles bet, gets exactly one more card, then stands)
+     */
+    public void doubleDown(Player player) {
+        synchronized (this) {
+            if (!gameInProgress || !player.equals(currentPlayer)) {
+                return;
+            }
+            
+            // Check if double down is allowed (only on first 2 cards)
+            List<Card> hand = playerHands.get(player);
+            if (hand.size() != 2) {
+                player.sendMessage(ChatColor.RED + "You can only double down on your first two cards!");
+                return;
+            }
+            
+            // Check if player has already doubled down
+            if (doubleDownPlayers.contains(player)) {
+                player.sendMessage(ChatColor.RED + "You have already doubled down!");
+                return;
+            }
+            
+            // Check if player has sufficient funds
+            Integer currentBet = plugin.getPlayerBets().get(player);
+            if (currentBet == null) {
+                currentBet = 0;
+            }
+            
+            if (!plugin.getEconomyProvider().hasEnough(player.getUniqueId(), java.math.BigDecimal.valueOf(currentBet))) {
+                player.sendMessage(ChatColor.RED + "You don't have enough money to double down!");
+                return;
+            }
+            
+            // Double the bet
+            plugin.getEconomyProvider().subtract(player.getUniqueId(), java.math.BigDecimal.valueOf(currentBet));
+            plugin.getPlayerBets().put(player, currentBet * 2);
+            
+            // Mark player as doubled down
+            doubleDownPlayers.add(player);
+            
+            // Deal exactly one card
+            Card newCard = deck.drawCard();
+            hand.add(newCard);
+            
+            playCardSound(player.getLocation());
+            updateCardDisplays(player, hand);
+            
+            int value = BlackjackEngine.calculateHandValue(hand);
+            broadcastTableMessage(player.getName() + " " + ChatColor.GOLD + "DOUBLES DOWN" + ChatColor.RESET + " with " + formatHandValue(value));
+            
+            // Player is automatically done after double down
+            finishedPlayers.add(player);
+            
+            if (BlackjackEngine.isBusted(hand)) {
+                broadcastTableMessage(player.getName() + " " + ChatColor.RED + "BUSTS!" + ChatColor.RESET);
+                playLoseSound(player);
+            } else if (value == 21) {
+                broadcastTableMessage(player.getName() + " " + ChatColor.GOLD + "hits 21!" + ChatColor.RESET);
+                playWinSound(player);
+            }
+            
             nextTurn();
         }
     }
@@ -315,7 +382,11 @@ public class BlackjackTable {
         if (currentPlayer != null && !finishedPlayers.contains(currentPlayer)) {
             // More compact turn announcement
             broadcastTableMessage(ChatColor.AQUA + currentPlayer.getName() + "'s turn");
-            ChatUtils.sendGameActionBar(currentPlayer);
+            
+            // Show doubledown only if player has exactly 2 cards and hasn't doubled down yet
+            List<Card> hand = playerHands.get(currentPlayer);
+            boolean canDoubleDown = hand != null && hand.size() == 2 && !doubleDownPlayers.contains(currentPlayer);
+            ChatUtils.sendGameActionBar(currentPlayer, canDoubleDown);
         } else {
             endGame();
         }
@@ -355,24 +426,22 @@ public class BlackjackTable {
                     }
                 }
                 
+                // Reset game state immediately after payouts so new games can start
+                resetGameState();
+                
                 // Show game ended message and buttons after payouts
                 if (!players.isEmpty()) {
                     broadcastTableMessage(ChatColor.GREEN + "Game ended!");
                     sendGameEndButtons();
                 }
             }, 20L); // 1 second delay
-            
-            // Clear displays after longer delay to let players see final results
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                clearAllDisplays();
-                resetGameState();
-            }, 100L); // 5 second delay
         }
     }
     
     private void resetGameState() {
         currentPlayer = null;
         finishedPlayers.clear();
+        doubleDownPlayers.clear();
         playerHands.clear();
         dealerHand.clear();
         deck = new Deck();
@@ -581,9 +650,10 @@ public class BlackjackTable {
         long currentTime = System.currentTimeMillis();
         Long lastTime = lastMessageTime.get(playerId);
         
-        // Bypass cooldown for critical messages (payouts, results, dealer final hand)
+        // Bypass cooldown for critical messages (payouts, results, dealer final hand, doubledown)
         boolean isCriticalMessage = message.contains("WINS!") || message.contains("BLACKJACK!") || 
                                   message.contains("loses") || message.contains("PUSH") ||
+                                  message.contains("DOUBLES DOWN") ||
                                   message.startsWith("Dealer: ") && message.contains("|");
         
         // Only send if it's been more than 1.5 seconds since last message, OR if it's a critical message

@@ -36,6 +36,13 @@ public class ChatUtils {
      * Create a game action bar with clickable options
      */
     public static void sendGameActionBar(Player player) {
+        sendGameActionBar(player, true); // Default to showing doubledown
+    }
+    
+    /**
+     * Create a game action bar with clickable options
+     */
+    public static void sendGameActionBar(Player player, boolean showDoubleDown) {
         TextComponent hitButton = new TextComponent("§a§l[HIT]");
         hitButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/hit"));
         
@@ -49,6 +56,14 @@ public class ChatUtils {
         fullMessage.addExtra(hitButton);
         fullMessage.addExtra(separator);
         fullMessage.addExtra(standButton);
+        
+        // Add doubledown button if appropriate
+        if (showDoubleDown) {
+            TextComponent doubleDownButton = new TextComponent("§6§l[DOUBLE DOWN]");
+            doubleDownButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/doubledown"));
+            fullMessage.addExtra(separator);
+            fullMessage.addExtra(doubleDownButton);
+        }
         
         player.spigot().sendMessage(fullMessage);
     }

@@ -27,6 +27,7 @@ public class CommandManager {
         registerCommand("bet", new BetCommand(plugin));
         registerCommand("hit", new SimpleForwardCommand(plugin, "hit"));
         registerCommand("stand", new SimpleForwardCommand(plugin, "stand"));
+        registerCommand("doubledown", new SimpleForwardCommand(plugin, "doubledown"));
         registerCommand("join", new SimpleForwardCommand(plugin, "join"));
         registerCommand("leave", new SimpleForwardCommand(plugin, "leave"));
         registerCommand("start", new SimpleForwardCommand(plugin, "start"));
