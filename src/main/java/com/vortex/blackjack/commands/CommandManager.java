@@ -31,11 +31,12 @@ public class CommandManager {
         registerCommand("join", new SimpleForwardCommand(plugin, "join"));
         registerCommand("leave", new SimpleForwardCommand(plugin, "leave"));
         registerCommand("start", new SimpleForwardCommand(plugin, "start"));
-        registerCommand("stats", new SimpleForwardCommand(plugin, "stats"));
+        registerCommand("stats", new StatsCommand(plugin));
         
         // Admin commands
         registerCommand("createtable", new SimpleForwardCommand(plugin, "createtable"));
         registerCommand("removetable", new SimpleForwardCommand(plugin, "removetable"));
+        registerCommand("bjversion", new VersionCommand(plugin, plugin.getVersionChecker()));
         
         plugin.getLogger().info("Registered individual commands for better user experience!");
     }

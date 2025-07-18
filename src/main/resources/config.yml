@@ -3,6 +3,12 @@ betting:
   min-bet: 10
   max-bet: 10000
   cooldown-ms: 2000
+  
+  # Quick Bet Options (shown in chat when betting)
+  quick-bets:
+    small: [10, 25, 50]
+    medium: [100, 250, 500]
+    large: [1000, 2500, 5000]
 
 # Table Settings
 table:
@@ -65,7 +71,6 @@ particles:
 
 # User Experience Settings
 ux:
-  auto-open-bet-gui: true      # Automatically open betting GUI when joining table
   clickable-chat: true         # Enable clickable chat messages for actions
   action-bar-controls: true    # Show action buttons in chat during turns
   quick-bet-suggestions: true  # Show quick bet amounts in chat

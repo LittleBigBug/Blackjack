@@ -69,14 +69,60 @@ public class ChatUtils {
     }
     
     /**
-     * Create betting options with clickable amounts
+     * Create betting options with clickable amounts (configurable)
+     */
+    public static void sendBettingOptions(Player player, com.vortex.blackjack.config.ConfigManager configManager) {
+        player.sendMessage("§e§l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+        player.sendMessage("§6§l                          QUICK BET");
+        player.sendMessage("");
+        
+        // Row 1: Small bets
+        TextComponent smallBets = new TextComponent("§7Small: ");
+        java.util.List<Integer> smallBetAmounts = configManager.getSmallBets();
+        for (int i = 0; i < smallBetAmounts.size(); i++) {
+            if (i > 0) smallBets.addExtra(" ");
+            int amount = smallBetAmounts.get(i);
+            addBetButton(smallBets, "§a$" + amount, "/bet " + amount, "§eClick to bet $" + amount);
+        }
+        player.spigot().sendMessage(smallBets);
+        
+        // Row 2: Medium bets
+        TextComponent mediumBets = new TextComponent("§7Medium: ");
+        java.util.List<Integer> mediumBetAmounts = configManager.getMediumBets();
+        for (int i = 0; i < mediumBetAmounts.size(); i++) {
+            if (i > 0) mediumBets.addExtra(" ");
+            int amount = mediumBetAmounts.get(i);
+            addBetButton(mediumBets, "§e$" + amount, "/bet " + amount, "§eClick to bet $" + amount);
+        }
+        player.spigot().sendMessage(mediumBets);
+        
+        // Row 3: Large bets
+        TextComponent largeBets = new TextComponent("§7Large: ");
+        java.util.List<Integer> largeBetAmounts = configManager.getLargeBets();
+        for (int i = 0; i < largeBetAmounts.size(); i++) {
+            if (i > 0) largeBets.addExtra(" ");
+            int amount = largeBetAmounts.get(i);
+            addBetButton(largeBets, "§c$" + amount, "/bet " + amount, "§eClick to bet $" + amount);
+        }
+        player.spigot().sendMessage(largeBets);
+        
+        player.sendMessage("");
+        
+        // Custom bet option
+        sendClickableSuggestion(player, "§b§l[CUSTOM BET]", "/bet ", "§eClick to enter custom amount");
+        
+        player.sendMessage("§e§l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+    }
+    
+    /**
+     * Legacy method for backwards compatibility - uses default values
      */
     public static void sendBettingOptions(Player player) {
         player.sendMessage("§e§l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
         player.sendMessage("§6§l                          QUICK BET");
         player.sendMessage("");
         
-        // Row 1: Small bets
+        // Row 1: Small bets (default values)
         TextComponent smallBets = new TextComponent("§7Small: ");
         addBetButton(smallBets, "§a$10", "/bet 10", "§eClick to bet $10");
         smallBets.addExtra(" ");
@@ -85,7 +131,7 @@ public class ChatUtils {
         addBetButton(smallBets, "§a$50", "/bet 50", "§eClick to bet $50");
         player.spigot().sendMessage(smallBets);
         
-        // Row 2: Medium bets
+        // Row 2: Medium bets (default values)
         TextComponent mediumBets = new TextComponent("§7Medium: ");
         addBetButton(mediumBets, "§e$100", "/bet 100", "§eClick to bet $100");
         mediumBets.addExtra(" ");
@@ -94,7 +140,7 @@ public class ChatUtils {
         addBetButton(mediumBets, "§e$500", "/bet 500", "§eClick to bet $500");
         player.spigot().sendMessage(mediumBets);
         
-        // Row 3: Large bets
+        // Row 3: Large bets (default values)
         TextComponent largeBets = new TextComponent("§7Large: ");
         addBetButton(largeBets, "§c$1000", "/bet 1000", "§eClick to bet $1000");
         largeBets.addExtra(" ");

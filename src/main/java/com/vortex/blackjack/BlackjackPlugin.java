@@ -8,6 +8,7 @@ import com.vortex.blackjack.model.PlayerStats;
 import com.vortex.blackjack.table.BlackjackTable;
 import com.vortex.blackjack.table.TableManager;
 import com.vortex.blackjack.util.AsyncUtils;
+import com.vortex.blackjack.util.VersionChecker;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -15,6 +16,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -47,6 +49,12 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     private AsyncUtils asyncUtils;
     private EconomyProvider economyProvider;
     
+    // GSit integration
+    private boolean gSitEnabled = false;
+    
+    // Version checker
+    private VersionChecker versionChecker;
+    
     // Player data - thread-safe collections
     private final Map<Player, Integer> playerBets = new ConcurrentHashMap<>();
     private final Map<Player, Integer> playerPersistentBets = new ConcurrentHashMap<>(); // Keeps bet amount for "Play Again"
@@ -66,6 +74,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         tableManager = new TableManager(this, configManager);
         commandManager = new CommandManager(this);
         asyncUtils = new AsyncUtils(this);
+        versionChecker = new VersionChecker(this);
         
         // Initialize economy provider
         if (getServer().getPluginManager().getPlugin("Essentials") != null) {
@@ -75,6 +84,14 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             getLogger().severe("No supported economy plugin found! Please install EssentialsX.");
             getServer().getPluginManager().disablePlugin(this);
             return;
+        }
+        
+        // Check for GSit integration
+        if (getServer().getPluginManager().getPlugin("GSit") != null) {
+            gSitEnabled = true;
+            getLogger().info("GSit found! Players will automatically sit when joining tables.");
+        } else {
+            getLogger().info("GSit not found. Players will not automatically sit when joining tables.");
         }
         
         // Initialize files
@@ -88,6 +105,9 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         
         // Load tables from config
         tableManager.loadTablesFromConfig();
+        
+        // Start version checking
+        versionChecker.checkForUpdates();
         
         getLogger().info("Blackjack plugin enabled successfully!");
         getLogger().info("✅ Players can now use individual commands like /bet, /hit, /stand!");
@@ -111,6 +131,16 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         savePlayerStats();
         
         getLogger().info("Blackjack plugin disabled!");
+    }
+    
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        
+        // Check if player is admin and notify about updates
+        if (player.hasPermission("blackjack.admin")) {
+            versionChecker.notifyAdmin(player);
+        }
     }
     
     @EventHandler
@@ -154,7 +184,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             case "stand" -> handleStand(player);
             case "doubledown" -> handleDoubleDown(player);
             case "bet" -> handleBet(player, args);
-            case "stats" -> handleStats(player);
+            case "stats" -> handleStats(player, args);
             case "reload" -> handleReload(player);
             default -> {
                 sendHelp(player);
@@ -303,17 +333,79 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         }
     }
     
-    private boolean handleStats(Player player) {
-        loadPlayerStats(player);
-        PlayerStats stats = playerStats.get(player.getUniqueId());
+    private boolean handleStats(Player player, String[] args) {
+        UUID targetUUID = player.getUniqueId();
+        String targetName = player.getName();
         
-        if (stats == null) {
-            player.sendMessage("§cNo statistics found!");
+        // Check if admin is checking another player's stats
+        if (args.length > 1) {
+            if (!player.hasPermission("blackjack.stats.others")) {
+                player.sendMessage("§cYou don't have permission to check other players' statistics!");
+                return true;
+            }
+            
+            targetName = args[1];
+            Player targetPlayer = getServer().getPlayer(targetName);
+            if (targetPlayer != null) {
+                targetUUID = targetPlayer.getUniqueId();
+                targetName = targetPlayer.getName();
+            } else {
+                // Try to find offline player using UUID (avoiding deprecated method)
+                try {
+                    // Attempt to get UUID from Mojang API or cache (implement as needed)
+                    // Example: Use a UUID cache or external API here for production
+                    // For now, fallback to searching known offline players
+                    org.bukkit.OfflinePlayer[] offlinePlayers = getServer().getOfflinePlayers();
+                    org.bukkit.OfflinePlayer offlinePlayer = null;
+                    for (org.bukkit.OfflinePlayer op : offlinePlayers) {
+                        if (op.getName() != null && op.getName().equalsIgnoreCase(targetName)) {
+                            offlinePlayer = op;
+                            break;
+                        }
+                    }
+                    if (offlinePlayer != null && offlinePlayer.hasPlayedBefore()) {
+                        targetUUID = offlinePlayer.getUniqueId();
+                        targetName = offlinePlayer.getName();
+                    } else {
+                        player.sendMessage("§cPlayer not found: " + targetName);
+                        return true;
+                    }
+                } catch (Exception ex) {
+                    player.sendMessage("§cPlayer not found: " + targetName);
+                    return true;
+                }
+            }
+        }
+        
+        // Load stats for the target player
+        FileConfiguration statsConfig = YamlConfiguration.loadConfiguration(statsFile);
+        PlayerStats stats = new PlayerStats();
+        String path = "players." + targetUUID + ".";
+        
+        stats.setHandsWon(statsConfig.getInt(path + "handsWon", 0));
+        stats.setHandsLost(statsConfig.getInt(path + "handsLost", 0));
+        stats.setHandsPushed(statsConfig.getInt(path + "handsPushed", 0));
+        stats.setCurrentStreak(statsConfig.getInt(path + "currentStreak", 0));
+        stats.setBestStreak(statsConfig.getInt(path + "bestStreak", 0));
+        stats.setTotalWinnings(statsConfig.getDouble(path + "totalWinnings", 0.0));
+        stats.setBlackjacks(statsConfig.getInt(path + "blackjacks", 0));
+        stats.setBusts(statsConfig.getInt(path + "busts", 0));
+        
+        if (stats.getTotalHands() == 0) {
+            if (targetUUID.equals(player.getUniqueId())) {
+                player.sendMessage("§cNo statistics found!");
+            } else {
+                player.sendMessage("§cNo statistics found for " + targetName + "!");
+            }
             return true;
         }
         
+        String headerMessage = targetUUID.equals(player.getUniqueId()) ? 
+            configManager.getMessage("stats-header") : 
+            "§6=== " + targetName + "'s Blackjack Statistics ===";
+        
         // Use the new formatted messages from config
-        player.sendMessage(configManager.getMessage("stats-header"));
+        player.sendMessage(headerMessage);
         player.sendMessage(configManager.formatMessage("stats-hands-won", "value", stats.getHandsWon()));
         player.sendMessage(configManager.formatMessage("stats-hands-lost", "value", stats.getHandsLost()));
         player.sendMessage(configManager.formatMessage("stats-hands-pushed", "value", stats.getHandsPushed()));
@@ -438,26 +530,6 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     
     // Player statistics system
     
-    private void loadPlayerStats(Player player) {
-        if (playerStats.containsKey(player.getUniqueId())) {
-            return;
-        }
-        
-        FileConfiguration statsConfig = YamlConfiguration.loadConfiguration(statsFile);
-        PlayerStats stats = new PlayerStats();
-        String path = "players." + player.getUniqueId() + ".";
-        
-        stats.setHandsWon(statsConfig.getInt(path + "handsWon", 0));
-        stats.setHandsLost(statsConfig.getInt(path + "handsLost", 0));
-        stats.setHandsPushed(statsConfig.getInt(path + "handsPushed", 0));
-        stats.setCurrentStreak(statsConfig.getInt(path + "currentStreak", 0));
-        stats.setBestStreak(statsConfig.getInt(path + "bestStreak", 0));
-        stats.setTotalWinnings(statsConfig.getDouble(path + "totalWinnings", 0.0));
-        stats.setBlackjacks(statsConfig.getInt(path + "blackjacks", 0));
-        stats.setBusts(statsConfig.getInt(path + "busts", 0));
-        
-        playerStats.put(player.getUniqueId(), stats);
-    }
     
     private void savePlayerStats() {
         if (playerStats.isEmpty()) {
@@ -507,6 +579,10 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         player.sendMessage("§e/stand §7- End your turn");
         player.sendMessage("§e/bj stats §7- View your statistics");
         
+        if (player.hasPermission("blackjack.stats.others")) {
+            player.sendMessage("§e/bj stats <player> §7- View another player's statistics");
+        }
+        
         player.sendMessage("");
         player.sendMessage("§a✨ TIP: Use individual commands like §e/bet§a, §e/hit§a, §e/stand §ainstead of §e/bj§a!");
         player.sendMessage("§a✨ Type §e/bet §aalone to open the visual betting menu!");
@@ -522,4 +598,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     public Map<Player, Integer> getPlayerBets() { return playerBets; }
     public Map<Player, Integer> getPlayerPersistentBets() { return playerPersistentBets; }
     public Map<UUID, PlayerStats> getPlayerStats() { return playerStats; }
+    public boolean isGSitEnabled() { return gSitEnabled; }
+    
+    public VersionChecker getVersionChecker() { return versionChecker; }
 }

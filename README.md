@@ -55,6 +55,14 @@
 /stats         # View your statistics
 ```
 
+## 🔧 Permissions
+
+| Permission | Description | Default |
+|------------|-------------|---------|
+| `blackjack.admin` | Create and remove tables | `op` |
+| `blackjack.play` | Join tables and play games | `true` |
+| `blackjack.stats.others` | View other players' statistics | `op` |
+
 ## 🎯 Commands
 
 | Command | Description | Permission |
@@ -67,7 +75,20 @@
 | `/hit` | Take another card | `blackjack.play` |
 | `/stand` | End your turn | `blackjack.play` |
 | `/bet <amount>` | Place or change your bet | `blackjack.play` |
-| `/stats` | View your statistics | `blackjack.play` |
+| `/stats [player]` | View statistics (admins can check other players) | `blackjack.play` |
+| `/bjversion` | Check plugin version and update status | `blackjack.admin` |
+
+## 🔌 Plugin Integration
+
+### Version Checking
+- **Automatic Updates**: Admins are notified when joining if a new version is available
+- **Manual Check**: Use `/bjversion` to check current version and update status
+- **GitHub Integration**: Automatically checks releases from the official repository
+
+### GSit Support
+- **Automatic Detection**: Plugin automatically detects if GSit is installed
+- **Enhanced Experience**: Players automatically sit when joining tables
+- **Graceful Fallback**: Works perfectly without GSit if not available
 
 ## ⚙️ Configuration
 

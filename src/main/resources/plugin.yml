@@ -19,49 +19,44 @@ commands:
       &e/stand &7- End your turn
       &e/doubledown &7- Double your bet and take exactly one more card
       &e/bet <amount> &7- Place or change your bet
-      &e/stats &7- View your statistics
+      &e/stats [player] &7- View statistics (admins can check other players)
     aliases: [bj]
   createtable:
     description: Create a new blackjack table
     permission: blackjack.admin
-    aliases: [blackjack:createtable]
   removetable:
     description: Remove the nearest blackjack table
     permission: blackjack.admin
-    aliases: [blackjack:removetable]
   join:
     description: Join the nearest blackjack table
     permission: blackjack.play
-    aliases: [blackjack:join]
   leave:
     description: Leave your current blackjack table
     permission: blackjack.play
-    aliases: [blackjack:leave]
   start:
     description: Start a new blackjack game
     permission: blackjack.play
-    aliases: [blackjack:start]
   hit:
     description: Take another card in blackjack
     permission: blackjack.play
-    aliases: [blackjack:hit]
   stand:
     description: End your turn in blackjack
     permission: blackjack.play
-    aliases: [blackjack:stand]
   doubledown:
     description: Double your bet and take exactly one more card
     permission: blackjack.play
-    aliases: [blackjack:doubledown, dd]
+    aliases: [dd]
   bet:
     description: Place or change your bet in blackjack
     permission: blackjack.play
     usage: /bet <amount>
-    aliases: [blackjack:bet]
   stats:
-    description: View your blackjack statistics
+    description: View your blackjack statistics or check another player's stats (admin only)
     permission: blackjack.play
-    aliases: [blackjack:stats]
+    usage: /stats [player]
+  bjversion:
+    description: Check the plugin version and update status
+    permission: blackjack.admin
 
 permissions:
   blackjack.admin:
@@ -70,3 +65,6 @@ permissions:
   blackjack.play:
     description: Allows playing blackjack
     default: true
+  blackjack.stats.others:
+    description: Allows checking other players' statistics
+    default: op

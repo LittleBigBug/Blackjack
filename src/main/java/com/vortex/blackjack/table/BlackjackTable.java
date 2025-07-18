@@ -103,13 +103,29 @@ public class BlackjackTable {
                 Location seatLoc = getSeatLocation(seatNumber);
                 if (seatLoc != null) {
                     player.teleport(seatLoc);
+                    
+                    // Rotate player 90 degrees to the right before sitting
+                    Location currentLoc = player.getLocation();
+                    float newYaw = currentLoc.getYaw() + 90f;
+                    currentLoc.setYaw(newYaw);
+                    player.teleport(currentLoc);
+                    
+                    // GSit integration - make player sit down if GSit is available
+                    if (plugin.isGSitEnabled()) {
+                        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                            if (player.isOnline() && players.contains(player)) {
+                                // Use GSit's sit command
+                                player.performCommand("sit");
+                            }
+                        }, 5L); // 0.25 second delay to allow teleport to complete
+                    }
                 }
                 
                 broadcastTableMessage(ChatColor.GREEN + player.getName() + " joined the table!");
                 
                 // Show betting options if UX features enabled
                 if (configManager.areParticlesEnabled()) { // Using as UX enabled check
-                    ChatUtils.sendBettingOptions(player);
+                    ChatUtils.sendBettingOptions(player, configManager);
                 }
                 
                 return true;
@@ -464,7 +480,7 @@ public class BlackjackTable {
                 plugin.getEconomyProvider().add(player.getUniqueId(), java.math.BigDecimal.valueOf(blackjackPayout));
                 broadcastTableMessage(ChatColor.GOLD + "" + ChatColor.BOLD + player.getName() + " BLACKJACK! " + ChatColor.GREEN + "+$" + blackjackPayout);
                 playWinSound(player);
-                updatePlayerStats(player, true, blackjackPayout);
+                updatePlayerStats(player, true, (double) blackjackPayout);
                 break;
             case PLAYER_WIN:
             case DEALER_BUST:
@@ -473,7 +489,7 @@ public class BlackjackTable {
                 plugin.getEconomyProvider().add(player.getUniqueId(), java.math.BigDecimal.valueOf(winPayout));
                 broadcastTableMessage(ChatColor.GREEN + "" + ChatColor.BOLD + player.getName() + " WINS! " + ChatColor.GREEN + "+$" + winPayout);
                 playWinSound(player);
-                updatePlayerStats(player, true, betAmount);
+                updatePlayerStats(player, true, (double) betAmount);
                 break;
             case DEALER_WIN:
             case DEALER_BLACKJACK:
@@ -481,14 +497,14 @@ public class BlackjackTable {
                 // Player loses their bet (already taken when bet was placed)
                 broadcastTableMessage(ChatColor.RED + "" + ChatColor.BOLD + player.getName() + " loses -$" + betAmount);
                 playLoseSound(player);
-                updatePlayerStats(player, false, -betAmount);
+                updatePlayerStats(player, false, (double) -betAmount);
                 break;
             case PUSH:
                 // Push - return bet to player
                 plugin.getEconomyProvider().add(player.getUniqueId(), java.math.BigDecimal.valueOf(betAmount));
                 broadcastTableMessage(ChatColor.YELLOW + "" + ChatColor.BOLD + player.getName() + " PUSH (tie) - $" + betAmount + " returned");
                 player.playSound(player.getLocation(), configManager.getPushSound(), 1.0F, 1.0F);
-                updatePlayerStats(player, null, 0); // Push doesn't count as win or loss
+                updatePlayerStats(player, null, 0.0); // Push doesn't count as win or loss
                 break;
         }
         
@@ -496,7 +512,7 @@ public class BlackjackTable {
         plugin.getPlayerBets().remove(player);
     }
     
-    private void updatePlayerStats(Player player, Boolean won, int winnings) {
+    private void updatePlayerStats(Player player, Boolean won, double winnings) {
         com.vortex.blackjack.model.PlayerStats stats = plugin.getPlayerStats().get(player.getUniqueId());
         if (stats == null) {
             stats = new com.vortex.blackjack.model.PlayerStats();
@@ -509,7 +525,7 @@ public class BlackjackTable {
         } else if (won) {
             // Win
             stats.setHandsWon(stats.getHandsWon() + 1);
-            stats.setTotalWinnings(stats.getTotalWinnings() + winnings);
+            stats.addWinnings(winnings);
             stats.setCurrentStreak(Math.max(0, stats.getCurrentStreak()) + 1);
             stats.setBestStreak(Math.max(stats.getBestStreak(), stats.getCurrentStreak()));
             
@@ -521,7 +537,7 @@ public class BlackjackTable {
         } else {
             // Loss
             stats.setHandsLost(stats.getHandsLost() + 1);
-            stats.setTotalWinnings(stats.getTotalWinnings() + winnings); // winnings will be negative
+            stats.addWinnings(winnings); // winnings will be negative
             stats.setCurrentStreak(Math.min(0, stats.getCurrentStreak()) - 1);
             
             // Check for bust

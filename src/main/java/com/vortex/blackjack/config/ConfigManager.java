@@ -74,6 +74,19 @@ public class ConfigManager {
     public boolean areParticlesEnabled() { return particlesEnabled; }
     public boolean shouldHitSoft17() { return hitSoft17; }
     
+    // Quick bet settings
+    public java.util.List<Integer> getSmallBets() {
+        return config.getIntegerList("betting.quick-bets.small");
+    }
+    
+    public java.util.List<Integer> getMediumBets() {
+        return config.getIntegerList("betting.quick-bets.medium");
+    }
+    
+    public java.util.List<Integer> getLargeBets() {
+        return config.getIntegerList("betting.quick-bets.large");
+    }
+    
     // Display settings
     public float getCardScale() {
         return (float) config.getDouble("display.card.scale", 0.35);

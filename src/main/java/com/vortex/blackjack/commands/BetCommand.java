@@ -1,25 +1,20 @@
 package com.vortex.blackjack.commands;
 
 import com.vortex.blackjack.BlackjackPlugin;
-import com.vortex.blackjack.gui.BettingGUI;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.util.Arrays;
 import java.util.List;
 
 /**
- * Handle the /bet command with smart amount suggestions and GUI
+ * Handle the /bet command with smart amount suggestions and configurable chat betting
  */
 public class BetCommand extends BlackjackCommand {
     private final BlackjackPlugin plugin;
-    private final BettingGUI bettingGUI;
-    private static final List<String> QUICK_BETS = Arrays.asList("10", "25", "50", "100", "250", "500", "1000", "gui", "menu");
     
     public BetCommand(BlackjackPlugin plugin) {
         this.plugin = plugin;
-        this.bettingGUI = new BettingGUI(plugin);
     }
     
     @Override
@@ -32,15 +27,8 @@ public class BetCommand extends BlackjackCommand {
         Player player = getPlayer(sender);
         
         if (args.length == 0) {
-            // Show chat-based betting options instead of GUI
+            // Show configurable chat-based betting options
             showChatBettingOptions(player);
-            return true;
-        }
-        
-        // Check for GUI command
-        String firstArg = args[0].toLowerCase();
-        if (firstArg.equals("gui") || firstArg.equals("menu")) {
-            bettingGUI.openBettingGUI(player);
             return true;
         }
         
@@ -55,20 +43,24 @@ public class BetCommand extends BlackjackCommand {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return filterCompletions(QUICK_BETS, args[0]);
+            // Create tab completions from config values
+            List<String> completions = new java.util.ArrayList<>();
+            
+            // Add quick bet amounts from config
+            plugin.getConfigManager().getSmallBets().forEach(amount -> completions.add(amount.toString()));
+            plugin.getConfigManager().getMediumBets().forEach(amount -> completions.add(amount.toString()));
+            plugin.getConfigManager().getLargeBets().forEach(amount -> completions.add(amount.toString()));
+            
+            return filterCompletions(completions, args[0]);
         }
         return super.onTabComplete(sender, command, alias, args);
-    }
-    
-    public BettingGUI getBettingGUI() {
-        return bettingGUI;
     }
     
     private void showChatBettingOptions(Player player) {
         player.sendMessage("§6§l=== Quick Bet Menu ===");
         player.sendMessage("§7Click on an amount to place your bet:");
         
-        // Create clickable bet buttons
-        com.vortex.blackjack.util.ChatUtils.sendBettingOptions(player);
+        // Use configurable chat betting options
+        com.vortex.blackjack.util.ChatUtils.sendBettingOptions(player, plugin.getConfigManager());
     }
 }
