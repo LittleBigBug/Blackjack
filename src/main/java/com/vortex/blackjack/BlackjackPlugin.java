@@ -80,22 +80,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
         }
         
-        configManager = new ConfigManager(this, getConfig(), messagesConfig);
-        
-        // Migrate and validate configuration files
-        getLogger().info("Checking configuration files for updates...");
-        if (configManager.migrateConfiguration()) {
-            // Save the updated configurations
-            try {
-                saveConfig();
-                messagesConfig.save(messagesFile);
-                getLogger().info("Configuration files updated with new settings!");
-            } catch (IOException e) {
-                getLogger().warning("Failed to save updated configuration files: " + e.getMessage());
-            }
-        } else {
-            getLogger().info("Configuration files are up to date.");
-        }
+        configManager = new ConfigManager(getConfig(), messagesConfig);
         
         // Initialize core managers
         tableManager = new TableManager(this, configManager);
@@ -642,20 +627,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         FileConfiguration messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
         
         configManager.reload(getConfig(), messagesConfig);
-        
-        // Run migration to add any new config options
-        if (configManager.migrateConfiguration()) {
-            try {
-                saveConfig();
-                messagesConfig.save(messagesFile);
-                player.sendMessage(configManager.getMessage("config-reloaded") + " &7(Updated with new settings)");
-            } catch (IOException e) {
-                getLogger().warning("Failed to save updated configuration files during reload: " + e.getMessage());
-                player.sendMessage(configManager.getMessage("config-reloaded"));
-            }
-        } else {
-            player.sendMessage(configManager.getMessage("config-reloaded"));
-        }
+        player.sendMessage(configManager.getMessage("config-reloaded"));
         return true;
     }
     

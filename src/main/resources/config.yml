@@ -2,7 +2,7 @@
 betting:
   min-bet: 10
   max-bet: 10000
-  cooldown-ms: 1000
+  cooldown-ms: 2000
   
   # Quick Bet Options (shown in chat when betting)
   quick-bets:
