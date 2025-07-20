@@ -3,7 +3,7 @@ package com.vortex.blackjack;
 import com.vortex.blackjack.commands.CommandManager;
 import com.vortex.blackjack.config.ConfigManager;
 import com.vortex.blackjack.economy.EconomyProvider;
-import com.vortex.blackjack.economy.EssentialsEconomyProvider;
+import com.vortex.blackjack.economy.VaultEconomyProvider;
 import com.vortex.blackjack.model.PlayerStats;
 import com.vortex.blackjack.table.BlackjackTable;
 import com.vortex.blackjack.table.TableManager;
@@ -17,6 +17,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -28,17 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Main plugin class - COMPLETELY REFACTORED!
- * 
- * BEFORE: 1270 lines of monolithic code
- * AFTER: ~400 lines of clean, organized code
- * 
- * Key improvements:
- * - Separated concerns into dedicated managers
- * - Individual commands for better UX (/bet, /hit, /stand)
- * - Modern Java patterns and thread-safe collections
- * - Proper error handling and resource cleanup
- * - Extensible architecture for future features
+ * Main Blackjack plugin class
  */
 public class BlackjackPlugin extends JavaPlugin implements Listener {
     
@@ -68,7 +59,43 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     public void onEnable() {
         // Initialize configuration
         saveDefaultConfig();
-        configManager = new ConfigManager(getConfig());
+        
+        // Load messages configuration
+        File messagesFile = new File(getDataFolder(), "messages.yml");
+        FileConfiguration messagesConfig = null;
+        
+        if (!messagesFile.exists()) {
+            // Try to save the resource if it exists in the JAR
+            try {
+                saveResource("messages.yml", false);
+                messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
+                getLogger().info("Created messages.yml file");
+            } catch (IllegalArgumentException e) {
+                // messages.yml doesn't exist in JAR, create a default one
+                getLogger().info("Creating default messages.yml file");
+                createDefaultMessagesFile(messagesFile);
+                messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
+            }
+        } else {
+            messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
+        }
+        
+        configManager = new ConfigManager(this, getConfig(), messagesConfig);
+        
+        // Migrate and validate configuration files
+        getLogger().info("Checking configuration files for updates...");
+        if (configManager.migrateConfiguration()) {
+            // Save the updated configurations
+            try {
+                saveConfig();
+                messagesConfig.save(messagesFile);
+                getLogger().info("Configuration files updated with new settings!");
+            } catch (IOException e) {
+                getLogger().warning("Failed to save updated configuration files: " + e.getMessage());
+            }
+        } else {
+            getLogger().info("Configuration files are up to date.");
+        }
         
         // Initialize core managers
         tableManager = new TableManager(this, configManager);
@@ -76,12 +103,12 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         asyncUtils = new AsyncUtils(this);
         versionChecker = new VersionChecker(this);
         
-        // Initialize economy provider
-        if (getServer().getPluginManager().getPlugin("Essentials") != null) {
-            economyProvider = new EssentialsEconomyProvider();
-            getLogger().info("Using EssentialsX economy provider");
-        } else {
-            getLogger().severe("No supported economy plugin found! Please install EssentialsX.");
+        // Initialize economy provider - Vault with EssentialsX fallback
+        economyProvider = initializeEconomyProvider();
+        
+        if (economyProvider == null) {
+            getLogger().severe("No supported economy plugin found! Please install Vault with an economy plugin (like EssentialsX, EconomyAPI, CMI, HexaEcon, etc.)");
+            getLogger().severe("Disabling Blackjack...");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
@@ -109,9 +136,13 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         // Start version checking
         versionChecker.checkForUpdates();
         
-        getLogger().info("Blackjack plugin enabled successfully!");
-        getLogger().info("✅ Players can now use individual commands like /bet, /hit, /stand!");
-        getLogger().info("✅ Enhanced UX with clickable chat and GUI betting!");
+        // Schedule periodic stats saving - configurable interval
+        int statsSaveInterval = configManager.getStatsSaveInterval();
+        long ticks = statsSaveInterval * 20L; // Convert seconds to ticks (20 ticks = 1 second)
+        asyncUtils.scheduleRepeating("stats-autosave", this::savePlayerStats, ticks, ticks);
+        getLogger().info("Stats auto-save scheduled every " + statsSaveInterval + " seconds");
+        
+        getLogger().info("Blackjack enabled successfully!");
     }
     
     @Override
@@ -131,6 +162,163 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         savePlayerStats();
         
         getLogger().info("Blackjack plugin disabled!");
+    }
+    
+    /**
+     * Create a default messages.yml file with all the required messages
+     */
+    private void createDefaultMessagesFile(File messagesFile) {
+        try {
+            if (!messagesFile.getParentFile().exists()) {
+                messagesFile.getParentFile().mkdirs();
+            }
+            
+            FileConfiguration messagesConfig = new YamlConfiguration();
+            
+            // Add all the default messages
+            messagesConfig.set("prefix", "&8[&6Blackjack&8] &r");
+            messagesConfig.set("no-permission", "&cYou don't have permission to do that!");
+            messagesConfig.set("player-only-command", "&cThis command can only be used by players!");
+            
+            // Table management
+            messagesConfig.set("table-created", "&aBlackjack table created!");
+            messagesConfig.set("table-removed", "&cBlackjack table removed!");
+            messagesConfig.set("table-already-exists", "&cTable already exists at this location!");
+            messagesConfig.set("table-remove-failed", "&cFailed to remove table!");
+            messagesConfig.set("no-table-nearby", "&cNo table found nearby!");
+            
+            // Player table status
+            messagesConfig.set("already-at-table", "&cYou are already at a table! Use /leave to leave your current table.");
+            messagesConfig.set("not-at-table", "&cYou're not at a table! Use /join near a table to play.");
+            messagesConfig.set("auto-left-table", "&eYou moved too far from the table and were automatically removed.");
+            messagesConfig.set("left-table", "&aYou left the table.");
+            messagesConfig.set("left-table-bet-refunded", "&aYou left the table and your bet of $%amount% has been refunded.");
+            messagesConfig.set("left-table-bet-forfeit", "&cYou left the table mid-game and forfeit your bet of $%amount%.");
+            
+            // Table joining
+            messagesConfig.set("table-full", "&cThis table is full!");
+            messagesConfig.set("too-far", "&cYou are too far from the table to join!");
+            messagesConfig.set("no-seats", "&cNo available seats!");
+            messagesConfig.set("join-error", "&cError joining table. Please try again.");
+            messagesConfig.set("game-in-progress", "&cCannot perform this action during an active game!");
+            
+            // Betting
+            messagesConfig.set("bet-required", "&cYou must place a bet before the game can start! Use /bet <amount>");
+            messagesConfig.set("invalid-bet", "&cInvalid bet amount! Must be between %min_bet% and %max_bet%.");
+            messagesConfig.set("insufficient-funds", "&cYou don't have enough money to bet $%amount%!");
+            messagesConfig.set("bet-cooldown", "&cPlease wait a moment before changing your bet again.");
+            messagesConfig.set("bet-set", "&aYour bet has been set to $%amount%!");
+            messagesConfig.set("bet-already-set", "&eYour bet is already $%amount%!");
+            messagesConfig.set("bet-refunded", "&aYour bet of $%amount% has been refunded.");
+            messagesConfig.set("bet-refunded-shutdown", "&aBet refunded due to server shutdown: $%amount%");
+            messagesConfig.set("bet-reduced-refunded", "&aBet reduced to $%amount% and refunded $%refund%!");
+            messagesConfig.set("auto-bet-placed", "&aAuto-bet placed: $%amount%");
+            messagesConfig.set("invalid-amount", "&cInvalid amount!");
+            messagesConfig.set("bet-usage", "&cUsage: /bet <amount>");
+            messagesConfig.set("bet-failed", "&cFailed to process bet!");
+            messagesConfig.set("bet-refund-failed", "&cFailed to process bet refund!");
+            messagesConfig.set("error-refund", "&cAn error occurred while refunding your bet. Contact a staff member!");
+            messagesConfig.set("error-payout", "&cAn error occurred processing your payout. Contact a staff member!");
+            
+            // Quick bet menu
+            messagesConfig.set("quick-bet-header", "&6&l=== Quick Bet Menu ===");
+            messagesConfig.set("quick-bet-description", "&7Click on an amount to place your bet:");
+            messagesConfig.set("quick-bet-border", "&e&l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+            messagesConfig.set("quick-bet-title", "&6&l                          QUICK BET");
+            
+            // Game flow
+            messagesConfig.set("game-started", "&aGame started! %player%'s turn.");
+            messagesConfig.set("your-turn", "&aIt's your turn!");
+            messagesConfig.set("hand-value", "&aYour hand value: %value%");
+            messagesConfig.set("dealer-card", "&aDealer's visible card: %card% | Value: %value%");
+            messagesConfig.set("dealer-value", "&aDealer's final hand value: %value%");
+            
+            // Game actions
+            messagesConfig.set("player-busts", "&c%player% busts!");
+            messagesConfig.set("player-stands", "&a%player% stands at %value%!");
+            messagesConfig.set("player-wins", "&a%player% wins and gets back $%amount%!");
+            messagesConfig.set("player-loses", "&c%player% loses their bet of $%amount%!");
+            messagesConfig.set("player-pushes", "&e%player% pushes and gets their bet of $%amount% back!");
+            messagesConfig.set("player-blackjack", "&6%player% got BLACKJACK and wins $%amount%!");
+            
+            // Double down
+            messagesConfig.set("double-down-first-two-cards", "&cYou can only double down on your first two cards!");
+            messagesConfig.set("double-down-already-used", "&cYou have already doubled down!");
+            messagesConfig.set("double-down-insufficient-funds", "&cYou don't have enough money to double down!");
+            
+            // Hand display
+            messagesConfig.set("hand-display", "&bHand: %hand% | %hand_value%");
+            messagesConfig.set("dealer-shows", "&aDealer shows: %card% | %value%");
+            
+            // Statistics
+            messagesConfig.set("stats-header", "&6=== Blackjack Statistics ===");
+            messagesConfig.set("stats-other-player-header", "&6=== %player%'s Blackjack Statistics ===");
+            messagesConfig.set("stats-hands-won", "&eHands Won: &a%value%");
+            messagesConfig.set("stats-hands-lost", "&eHands Lost: &c%value%");
+            messagesConfig.set("stats-hands-pushed", "&eHands Pushed: &7%value%");
+            messagesConfig.set("stats-blackjacks", "&eBlackjacks: &6%value%");
+            messagesConfig.set("stats-busts", "&eBusts: &c%value%");
+            messagesConfig.set("stats-win-rate", "&eWin Rate: &a%value%%");
+            messagesConfig.set("stats-current-streak", "&eCurrent Streak: &b%value%");
+            messagesConfig.set("stats-best-streak", "&eBest Streak: &a%value%");
+            messagesConfig.set("stats-total-winnings", "&eTotal Winnings: &2$%value%");
+            messagesConfig.set("stats-no-permission", "&cYou don't have permission to check other players' statistics!");
+            messagesConfig.set("stats-player-not-found", "&cPlayer not found: %player%");
+            messagesConfig.set("stats-none-found", "&cNo statistics found!");
+            messagesConfig.set("stats-none-found-player", "&cNo statistics found for %player%!");
+            
+            // Configuration
+            messagesConfig.set("config-reloaded", "&aConfiguration reloaded!");
+            
+            // Help command
+            messagesConfig.set("help-header", "&rAvailable Commands:");
+            messagesConfig.set("help-admin-create", "&e/bj createtable &7- Create a new blackjack table");
+            messagesConfig.set("help-admin-remove", "&e/bj removetable &7- Remove the nearest table");
+            messagesConfig.set("help-admin-reload", "&e/bj reload &7- Reload configuration");
+            messagesConfig.set("help-join", "&e/join &7- Join the nearest table");
+            messagesConfig.set("help-leave", "&e/leave &7- Leave your current table");
+            messagesConfig.set("help-bet", "&e/bet <amount> &7- Place or change your bet");
+            messagesConfig.set("help-start", "&e/start &7- Start a new game");
+            messagesConfig.set("help-hit", "&e/hit &7- Take another card");
+            messagesConfig.set("help-stand", "&e/stand &7- End your turn");
+            messagesConfig.set("help-stats", "&e/bj stats &7- View your statistics");
+            messagesConfig.set("help-stats-others", "&e/bj stats <player> &7- View another player's statistics");
+            messagesConfig.set("help-tip", "&a✨ TIP: Use individual commands like &e/bet&a, &e/hit&a, &e/stand &ainstead of &e/bj&a!");
+            messagesConfig.set("help-bet-tip", "&a✨ Type &e/bet &aalone to open the visual betting menu!");
+            
+            // Table broadcast messages
+            messagesConfig.set("player-left-during-turn", "&c%player% %reason% during their turn.");
+            messagesConfig.set("player-left-table", "&c%player% %reason%.");
+            
+            messagesConfig.save(messagesFile);
+            
+        } catch (IOException e) {
+            getLogger().severe("Could not create default messages.yml: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Initialize economy provider
+     */
+    private EconomyProvider initializeEconomyProvider() {
+        VaultEconomyProvider provider = new VaultEconomyProvider(this);
+        
+        if (provider.isEnabled()) {
+            getLogger().info("Economy: " + provider.getProviderName());
+            return provider;
+        }
+        
+        // Try delayed initialization for late-loading economy plugins
+        getServer().getScheduler().runTaskLater(this, () -> {
+            if (provider.reconnect()) {
+                economyProvider = provider;
+                getLogger().info("Economy (delayed): " + provider.getProviderName());
+            } else {
+                getLogger().warning("No economy plugin found! Install Vault + an economy plugin (EssentialsX, HexaEcon, etc.)");
+            }
+        }, 40L);
+        
+        return provider; // Return even if not enabled, might work after delay
     }
     
     @EventHandler
@@ -153,17 +341,44 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         
         // Remove from table if they're at one
         if (tableManager != null) {
-            tableManager.removePlayerFromTable(player);
+            tableManager.removePlayerFromTable(player, "disconnected from the server");
         }
         
-        // Save their stats
-        savePlayerStats();
+        // Note: Stats are now saved periodically, not on every quit for better performance
+    }
+    
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        
+        // Only check if player moved to a different block (optimization)
+        if (event.getFrom().getBlockX() == event.getTo().getBlockX() && 
+            event.getFrom().getBlockZ() == event.getTo().getBlockZ()) {
+            return;
+        }
+        
+        // Check if player is at a table
+        if (tableManager != null) {
+            BlackjackTable table = tableManager.getPlayerTable(player);
+            if (table != null) {
+                double distance = player.getLocation().distance(table.getCenterLocation());
+                double maxDistance = configManager.getMaxJoinDistance();
+                
+                if (distance > maxDistance) {
+                    // Player moved too far from table, auto-leave
+                    table.removePlayer(player, "moved too far from the table");
+                    player.sendMessage(configManager.getMessage("auto-left-table")
+                        .replace("%distance%", String.format("%.1f", distance))
+                        .replace("%max_distance%", String.format("%.1f", maxDistance)));
+                }
+            }
+        }
     }
     
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("§cThis command can only be used by players!");
+            sender.sendMessage(configManager.getMessage("player-only-command"));
             return true;
         }
         
@@ -204,7 +419,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         if (tableManager.createTable(player.getLocation())) {
             player.sendMessage(configManager.getMessage("table-created"));
         } else {
-            player.sendMessage("§cTable already exists at this location!");
+            player.sendMessage(configManager.getMessage("table-already-exists"));
         }
         return true;
     }
@@ -220,7 +435,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             if (tableManager.removeTable(nearestTable.getCenterLocation())) {
                 player.sendMessage(configManager.getMessage("table-removed"));
             } else {
-                player.sendMessage("§cFailed to remove table!");
+                player.sendMessage(configManager.getMessage("table-remove-failed"));
             }
         } else {
             player.sendMessage(configManager.getMessage("no-table-nearby"));
@@ -246,16 +461,11 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     private boolean handleLeave(Player player) {
         BlackjackTable table = tableManager.getPlayerTable(player);
         if (table != null) {
-            // Send message to table before removing player
-            table.broadcastToTable("§e" + player.getName() + " left the table.");
-            
+            // Remove player from table (this will handle bet refunding automatically if needed)
             table.removePlayer(player);
-            refundPlayerBet(player);
             
             // Clear persistent bet when leaving
             playerPersistentBets.remove(player);
-            
-            player.sendMessage("§aYou left the table.");
         } else {
             player.sendMessage(configManager.getMessage("not-at-table"));
         }
@@ -272,7 +482,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             if ((currentBet == null || currentBet == 0) && persistentBet != null && persistentBet > 0) {
                 // Attempt to place the persistent bet automatically
                 if (processBet(player, persistentBet)) {
-                    player.sendMessage("§aAuto-bet placed: $" + persistentBet);
+                    player.sendMessage(configManager.formatMessage("auto-bet-placed", "amount", persistentBet));
                 }
             }
             
@@ -320,7 +530,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         }
         
         if (args.length < 2) {
-            player.sendMessage("§cUsage: /bet <amount>");
+            player.sendMessage(configManager.getMessage("bet-usage"));
             return true;
         }
         
@@ -328,7 +538,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             int amount = Integer.parseInt(args[1]);
             return processBet(player, amount);
         } catch (NumberFormatException e) {
-            player.sendMessage("§cInvalid amount!");
+            player.sendMessage(configManager.getMessage("invalid-amount"));
             return true;
         }
     }
@@ -340,7 +550,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         // Check if admin is checking another player's stats
         if (args.length > 1) {
             if (!player.hasPermission("blackjack.stats.others")) {
-                player.sendMessage("§cYou don't have permission to check other players' statistics!");
+                player.sendMessage(configManager.getMessage("stats-no-permission"));
                 return true;
             }
             
@@ -367,11 +577,11 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
                         targetUUID = offlinePlayer.getUniqueId();
                         targetName = offlinePlayer.getName();
                     } else {
-                        player.sendMessage("§cPlayer not found: " + targetName);
+                        player.sendMessage(configManager.formatMessage("stats-player-not-found", "player", targetName));
                         return true;
                     }
                 } catch (Exception ex) {
-                    player.sendMessage("§cPlayer not found: " + targetName);
+                    player.sendMessage(configManager.formatMessage("stats-player-not-found", "player", targetName));
                     return true;
                 }
             }
@@ -393,16 +603,16 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         
         if (stats.getTotalHands() == 0) {
             if (targetUUID.equals(player.getUniqueId())) {
-                player.sendMessage("§cNo statistics found!");
+                player.sendMessage(configManager.getMessage("stats-none-found"));
             } else {
-                player.sendMessage("§cNo statistics found for " + targetName + "!");
+                player.sendMessage(configManager.formatMessage("stats-none-found-player", "player", targetName));
             }
             return true;
         }
         
         String headerMessage = targetUUID.equals(player.getUniqueId()) ? 
             configManager.getMessage("stats-header") : 
-            "§6=== " + targetName + "'s Blackjack Statistics ===";
+            configManager.formatMessage("stats-other-player-header", "player", targetName);
         
         // Use the new formatted messages from config
         player.sendMessage(headerMessage);
@@ -426,8 +636,26 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         }
         
         reloadConfig();
-        configManager.reload(getConfig());
-        player.sendMessage("§aConfiguration reloaded!");
+        
+        // Reload messages configuration
+        File messagesFile = new File(getDataFolder(), "messages.yml");
+        FileConfiguration messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
+        
+        configManager.reload(getConfig(), messagesConfig);
+        
+        // Run migration to add any new config options
+        if (configManager.migrateConfiguration()) {
+            try {
+                saveConfig();
+                messagesConfig.save(messagesFile);
+                player.sendMessage(configManager.getMessage("config-reloaded") + " &7(Updated with new settings)");
+            } catch (IOException e) {
+                getLogger().warning("Failed to save updated configuration files during reload: " + e.getMessage());
+                player.sendMessage(configManager.getMessage("config-reloaded"));
+            }
+        } else {
+            player.sendMessage(configManager.getMessage("config-reloaded"));
+        }
         return true;
     }
     
@@ -478,7 +706,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
                     }, 20L); // 1 second delay to allow other players to bet
                 }
             } else {
-                player.sendMessage("§cFailed to process bet!");
+                player.sendMessage(configManager.getMessage("bet-failed"));
             }
         } else if (difference < 0) {
             // Refunding some money
@@ -487,27 +715,15 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
                 playerBets.put(player, amount);
                 playerPersistentBets.put(player, amount); // Store for "Play Again"
                 lastBetTime.put(player, currentTime);
-                player.sendMessage("§aBet reduced to $" + amount + " and refunded $" + refund + "!");
+                player.sendMessage(configManager.formatMessage("bet-reduced-refunded", "amount", amount, "refund", refund));
             } else {
-                player.sendMessage("§cFailed to process bet refund!");
+                player.sendMessage(configManager.getMessage("bet-refund-failed"));
             }
         } else {
-            player.sendMessage("§eYour bet is already $" + amount + "!");
+            player.sendMessage(configManager.formatMessage("bet-already-set", "amount", amount));
         }
         
         return true;
-    }
-    
-    private void refundPlayerBet(Player player) {
-        Integer betAmount = playerBets.remove(player);
-        if (betAmount != null && betAmount > 0) {
-            if (economyProvider.add(player.getUniqueId(), BigDecimal.valueOf(betAmount))) {
-                player.sendMessage(configManager.formatMessage("bet-refunded", "amount", betAmount));
-            } else {
-                player.sendMessage(configManager.getMessage("error-refund"));
-                getLogger().severe("Failed to refund bet for " + player.getName());
-            }
-        }
     }
     
     private void refundAllBets() {
@@ -520,7 +736,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
                 if (table == null || !table.isGameInProgress()) {
                     economyProvider.add(player.getUniqueId(), BigDecimal.valueOf(amount));
                     if (player.isOnline()) {
-                        player.sendMessage("§aBet refunded due to server shutdown: $" + amount);
+                        player.sendMessage(configManager.formatMessage("bet-refunded-shutdown", "amount", amount));
                     }
                 }
             }
@@ -563,29 +779,29 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     }
     
     private void sendHelp(Player player) {
-        player.sendMessage(configManager.getMessage("prefix") + "§rAvailable Commands:");
+        player.sendMessage(configManager.getMessage("prefix") + configManager.getMessage("help-header"));
         
         if (player.hasPermission("blackjack.admin")) {
-            player.sendMessage("§e/bj createtable §7- Create a new blackjack table");
-            player.sendMessage("§e/bj removetable §7- Remove the nearest table");
-            player.sendMessage("§e/bj reload §7- Reload configuration");
+            player.sendMessage(configManager.getMessage("help-admin-create"));
+            player.sendMessage(configManager.getMessage("help-admin-remove"));
+            player.sendMessage(configManager.getMessage("help-admin-reload"));
         }
         
-        player.sendMessage("§e/join §7- Join the nearest table");
-        player.sendMessage("§e/leave §7- Leave your current table");
-        player.sendMessage("§e/bet <amount> §7- Place or change your bet");
-        player.sendMessage("§e/start §7- Start a new game");
-        player.sendMessage("§e/hit §7- Take another card");
-        player.sendMessage("§e/stand §7- End your turn");
-        player.sendMessage("§e/bj stats §7- View your statistics");
+        player.sendMessage(configManager.getMessage("help-join"));
+        player.sendMessage(configManager.getMessage("help-leave"));
+        player.sendMessage(configManager.getMessage("help-bet"));
+        player.sendMessage(configManager.getMessage("help-start"));
+        player.sendMessage(configManager.getMessage("help-hit"));
+        player.sendMessage(configManager.getMessage("help-stand"));
+        player.sendMessage(configManager.getMessage("help-stats"));
         
         if (player.hasPermission("blackjack.stats.others")) {
-            player.sendMessage("§e/bj stats <player> §7- View another player's statistics");
+            player.sendMessage(configManager.getMessage("help-stats-others"));
         }
         
         player.sendMessage("");
-        player.sendMessage("§a✨ TIP: Use individual commands like §e/bet§a, §e/hit§a, §e/stand §ainstead of §e/bj§a!");
-        player.sendMessage("§a✨ Type §e/bet §aalone to open the visual betting menu!");
+        player.sendMessage(configManager.getMessage("help-tip"));
+        player.sendMessage(configManager.getMessage("help-bet-tip"));
     }
     
     // Getters for managers (used by other classes)

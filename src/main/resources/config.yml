@@ -20,10 +20,6 @@ table:
 # Game Rules
 game:
   hit-soft-17: false  # Whether dealer hits on soft 17
-  insurance-enabled: false  # Insurance betting (future feature)
-  double-down-enabled: true  # Double down betting (future feature)
-  split-enabled: false  # Pair splitting (future feature)
-  surrender-enabled: false  # Late surrender (future feature)
 
 # Card Display Settings (Original working system - minimal config)
 display:
@@ -69,65 +65,16 @@ particles:
     spread: 0.5
     height: 2.0
 
-# User Experience Settings
-ux:
-  clickable-chat: true         # Enable clickable chat messages for actions
-  action-bar-controls: true    # Show action buttons in chat during turns
-  quick-bet-suggestions: true  # Show quick bet amounts in chat
-  smart-suggestions: true      # Context-aware command suggestions
-  
-  # Chat Management - Reduce spam and improve readability
-  chat:
-    compact-mode: true         # Use fewer, more informative messages
-    merge-similar: true        # Don't repeat the same message type
-    use-action-bar: true       # Show game status in action bar instead of chat
-    clear-on-new-game: false   # Clear chat when new game starts
-    max-recent-messages: 3     # Maximum recent messages to keep in chat
-    game-status-format: "compact"  # "compact" or "detailed"
+# Performance Settings
 performance:
-  save-stats-interval: 300  # Save player stats every 5 minutes (in seconds)
-  cleanup-interval: 600     # Clean up old data every 10 minutes (in seconds)
-  max-concurrent-games: 10  # Maximum number of simultaneous games
+  # How often to save player statistics (in seconds)
+  # Lower values = more frequent saves but slightly more disk I/O
+  # Higher values = less frequent saves but potential data loss if server crashes
+  stats-save-interval: 3
 
-# Messages
-messages:
-  prefix: "&8[&6Blackjack&8] &r"
-  no-permission: "&cYou don't have permission to do that!"
-  table-created: "&aBlackjack table created!"
-  table-removed: "&cBlackjack table removed!"
-  already-at-table: "&cYou are already at a table! Use /leave to leave your current table."
-  no-table-nearby: "&cNo table found nearby!"
-  not-at-table: "&cYou're not at a table! Use /join near a table to play."
-  game-in-progress: "&cCannot perform this action during an active game!"
-  invalid-bet: "&cInvalid bet amount! Must be between %min_bet% and %max_bet%."
-  insufficient-funds: "&cYou don't have enough money to bet $%amount%!"
-  bet-cooldown: "&cPlease wait a moment before changing your bet again."
-  bet-set: "&aYour bet has been set to $%amount%!"
-  table-full: "&cThis table is full!"
-  too-far: "&cYou are too far from the table to join!"
-  no-seats: "&cNo available seats!"
-  join-error: "&cError joining table. Please try again."
-  game-started: "&aGame started! %player%'s turn."
-  your-turn: "&aIt's your turn!"
-  hand-value: "&aYour hand value: %value%"
-  dealer-card: "&aDealer's visible card: %card% | Value: %value%"
-  player-busts: "&c%player% busts!"
-  player-stands: "&a%player% stands at %value%!"
-  dealer-value: "&aDealer's final hand value: %value%"
-  player-wins: "&a%player% wins and gets back $%amount%!"
-  player-loses: "&c%player% loses their bet of $%amount%!"
-  player-pushes: "&e%player% pushes and gets their bet of $%amount% back!"
-  player-blackjack: "&6%player% got BLACKJACK and wins $%amount%!"
-  bet-refunded: "&aYour bet of $%amount% has been refunded."
-  error-refund: "&cAn error occurred while refunding your bet. Contact a staff member!"
-  error-payout: "&cAn error occurred processing your payout. Contact a staff member!"
-  stats-header: "&6=== Blackjack Statistics ==="
-  stats-hands-won: "&eHands Won: &a%value%"
-  stats-hands-lost: "&eHands Lost: &c%value%"
-  stats-hands-pushed: "&eHands Pushed: &7%value%"
-  stats-blackjacks: "&eBlackjacks: &6%value%"
-  stats-busts: "&eBusts: &c%value%"
-  stats-win-rate: "&eWin Rate: &a%value%%"
-  stats-current-streak: "&eCurrent Streak: &b%value%"
-  stats-best-streak: "&eBest Streak: &a%value%"
-  stats-total-winnings: "&eTotal Winnings: &2$%value%"
+# Game Settings
+game-settings:
+  # Whether to refund player bets when they leave during an active game
+  # true = Refund bets when players leave mid-game (player-friendly)
+  # false = Keep bets when players leave mid-game (house advantage)
+  refund-on-leave: true

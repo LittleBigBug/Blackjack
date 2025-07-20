@@ -17,7 +17,7 @@
 - **Smart Game Logic**: Professional blackjack rules with dealer AI
 
 ### 💰 **Economy Integration**
-- **EssentialsX Compatible**: Seamless integration with your server's economy
+- **Vault Compatible**: Works with any Vault-supported economy plugin (EssentialsX, EconomyAPI, CMI, etc.)
 - **Flexible Betting**: Configurable bet limits and cooldown periods
 - **Secure Transactions**: Anti-cheat measures and bet validation
 
@@ -180,7 +180,7 @@ Track your performance with detailed statistics:
 - **Minecraft Version**: 1.21.3 or higher
 - **Server Software**: Spigot, Paper, or compatible forks
 - **Java Version**: 21 or higher
-- **Dependencies**: EssentialsX (for economy support)
+- **Dependencies**: Vault + any economy plugin (EssentialsX, EconomyAPI, CMI, etc.)
 - **Resource Pack**: @playing_cards (included)
 
 ## 🤝 Contributing

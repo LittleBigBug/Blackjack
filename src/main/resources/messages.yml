@@ -1,0 +1,143 @@
+# Messages Configuration File
+# This file contains all user-facing messages for internationalization support
+# Color codes: &0-&9, &a-&f for colors, &l (bold), &n (underline), &o (italic), &k (magic), &m (strikethrough), &r (reset)
+# Placeholders are marked with %placeholder_name%
+
+# Core messages
+prefix: "&8[&6Blackjack&8] &r"
+no-permission: "&cYou don't have permission to do that!"
+player-only-command: "&cThis command can only be used by players!"
+
+# Table management
+table-created: "&aBlackjack table created!"
+table-removed: "&cBlackjack table removed!"
+table-already-exists: "&cTable already exists at this location!"
+table-remove-failed: "&cFailed to remove table!"
+no-table-nearby: "&cNo table found nearby!"
+
+# Player table status
+already-at-table: "&cYou are already at a table! Use /leave to leave your current table."
+not-at-table: "&cYou're not at a table! Use /join near a table to play."
+auto-left-table: "&eYou moved too far from the table and were automatically removed."
+left-table: "&aYou left the table."
+left-table-bet-refunded: "&aYou left the table and your bet of $%amount% has been refunded."
+left-table-bet-forfeit: "&cYou left the table mid-game and forfeit your bet of $%amount%."
+
+# Table joining
+table-full: "&cThis table is full!"
+too-far: "&cYou are too far from the table to join!"
+no-seats: "&cNo available seats!"
+join-error: "&cError joining table. Please try again."
+game-in-progress: "&cCannot perform this action during an active game!"
+
+# Betting
+bet-required: "&cYou must place a bet before the game can start! Use /bet <amount>"
+invalid-bet: "&cInvalid bet amount! Must be between %min_bet% and %max_bet%."
+insufficient-funds: "&cYou don't have enough money to bet $%amount%!"
+bet-cooldown: "&cPlease wait a moment before changing your bet again."
+bet-set: "&aYour bet has been set to $%amount%!"
+bet-already-set: "&eYour bet is already $%amount%!"
+bet-refunded: "&aYour bet of $%amount% has been refunded."
+bet-refunded-shutdown: "&aBet refunded due to server shutdown: $%amount%"
+bet-reduced-refunded: "&aBet reduced to $%amount% and refunded $%refund%!"
+auto-bet-placed: "&aAuto-bet placed: $%amount%"
+invalid-amount: "&cInvalid amount!"
+bet-usage: "&cUsage: /bet <amount>"
+bet-failed: "&cFailed to process bet!"
+bet-refund-failed: "&cFailed to process bet refund!"
+error-refund: "&cAn error occurred while refunding your bet. Contact a staff member!"
+error-payout: "&cAn error occurred processing your payout. Contact a staff member!"
+
+# Quick bet menu
+quick-bet-header: "&6&l=== Quick Bet Menu ==="
+quick-bet-description: "&7Click on an amount to place your bet:"
+
+# Game flow
+game-started: "&aGame started! %player%'s turn."
+your-turn: "&aIt's your turn!"
+hand-value: "&aYour hand value: %value%"
+dealer-card: "&aDealer's visible card: %card% | Value: %value%"
+dealer-value: "&aDealer's final hand value: %value%"
+
+# Game actions
+player-busts: "&c%player% busts!"
+player-stands: "&a%player% stands at %value%!"
+player-wins: "&a%player% wins and gets back $%amount%!"
+player-loses: "&c%player% loses their bet of $%amount%!"
+player-pushes: "&e%player% pushes and gets their bet of $%amount% back!"
+player-blackjack: "&6%player% got BLACKJACK and wins $%amount%!"
+
+# Double down
+double-down-first-two-cards: "&cYou can only double down on your first two cards!"
+double-down-already-used: "&cYou have already doubled down!"
+double-down-insufficient-funds: "&cYou don't have enough money to double down!"
+
+# Hand display
+hand-display: "&bHand: %hand% | %hand_value%"
+dealer-shows: "&aDealer shows: %card% | %value%"
+
+# Statistics
+stats-header: "&6=== Blackjack Statistics ==="
+stats-other-player-header: "&6=== %player%'s Blackjack Statistics ==="
+stats-hands-won: "&eHands Won: &a%value%"
+stats-hands-lost: "&eHands Lost: &c%value%"
+stats-hands-pushed: "&eHands Pushed: &7%value%"
+stats-blackjacks: "&eBlackjacks: &6%value%"
+stats-busts: "&eBusts: &c%value%"
+stats-win-rate: "&eWin Rate: &a%value%%"
+stats-current-streak: "&eCurrent Streak: &b%value%"
+stats-best-streak: "&eBest Streak: &a%value%"
+stats-total-winnings: "&eTotal Winnings: &2$%value%"
+stats-no-permission: "&cYou don't have permission to check other players' statistics!"
+stats-player-not-found: "&cPlayer not found: %player%"
+stats-none-found: "&cNo statistics found!"
+stats-none-found-player: "&cNo statistics found for %player%!"
+
+# Configuration
+config-reloaded: "&aConfiguration reloaded!"
+
+# Help command
+help-header: "&rAvailable Commands:"
+help-admin-create: "&e/bj createtable &7- Create a new blackjack table"
+help-admin-remove: "&e/bj removetable &7- Remove the nearest table"
+help-admin-reload: "&e/bj reload &7- Reload configuration"
+help-join: "&e/join &7- Join the nearest table"
+help-leave: "&e/leave &7- Leave your current table"
+help-bet: "&e/bet <amount> &7- Place or change your bet"
+help-start: "&e/start &7- Start a new game"
+help-hit: "&e/hit &7- Take another card"
+help-stand: "&e/stand &7- End your turn"
+help-stats: "&e/bj stats &7- View your statistics"
+help-stats-others: "&e/bj stats <player> &7- View another player's statistics"
+help-tip: "&a✨ TIP: Use individual commands like &e/bet&a, &e/hit&a, &e/stand &ainstead of &e/bj&a!"
+help-bet-tip: "&a✨ Type &e/bet &aalone to open the visual betting menu!"
+
+# Version command
+version-header: "&6BLACKJACK PLUGIN VERSION INFO"
+version-plugin: "&fPlugin: &aBlackjack"
+version-author: "&fAuthor: &bDefectiveVortex"
+version-current: "&fCurrent Version: &a%version%"
+version-latest: "&fLatest Version: &a%version%"
+version-update-available: "&c⚠ UPDATE AVAILABLE!"
+version-up-to-date: "&a✓ UP TO DATE!"
+version-download: "&bDownload: &9%url%"
+version-github: "&7GitHub: &9%url%"
+version-no-permission: "&cYou don't have permission to use this command."
+
+# Update notifications
+update-notification-border: "&e╔═══════════════════════════════════════════════════════════════════════════╗"
+update-notification-title: "&e║ &6⚠ BLACKJACK PLUGIN UPDATE AVAILABLE&e                                  ║"
+update-notification-empty: "&e║                                                                           ║"
+update-notification-current: "&e║ &fCurrent Version: &c%version%&e                                                  ║"
+update-notification-latest: "&e║ &fLatest Version:  &a%version%&e                                                  ║"
+update-notification-download: "&e║ &bDownload: &9%url%&e     ║"
+update-notification-command: "&e║ &7Use &f/bjversion&7 for more details&e                                    ║"
+update-notification-border-bottom: "&e╚═══════════════════════════════════════════════════════════════════════════╝"
+
+# Chat utilities
+quick-bet-border: "&e&l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
+quick-bet-title: "&6&l                          QUICK BET"
+
+# Table broadcast messages
+player-left-during-turn: "&c%player% %reason% during their turn."
+player-left-table: "&c%player% %reason%."

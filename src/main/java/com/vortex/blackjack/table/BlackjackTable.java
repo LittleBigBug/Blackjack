@@ -19,6 +19,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -149,25 +150,62 @@ public class BlackjackTable {
      * Remove a player from this table
      */
     public void removePlayer(Player player) {
+        removePlayer(player, "left the table");
+    }
+    
+    /**
+     * Remove a player from this table with custom reason
+     */
+    public void removePlayer(Player player, String reason) {
         synchronized (this) {
             if (!players.contains(player)) return;
+            
+            // Check if player has a bet that needs to be refunded
+            boolean shouldRefundBet = gameInProgress && configManager.shouldRefundOnLeave();
+            Integer betAmount = plugin.getPlayerBets().get(player);
             
             // Cleanup player data
             players.remove(player);
             playerSeats.remove(player);
             playerHands.remove(player);
+            finishedPlayers.remove(player);
+            doubleDownPlayers.remove(player);
             tableManager.setPlayerTable(player, null);
             
+            // Refund bet if player leaves mid-game and refunds are enabled
+            if (shouldRefundBet && betAmount != null && betAmount > 0) {
+                plugin.getPlayerBets().remove(player);
+                if (plugin.getEconomyProvider().add(player.getUniqueId(), BigDecimal.valueOf(betAmount))) {
+                    player.sendMessage(configManager.formatMessage("left-table-bet-refunded", "amount", betAmount));
+                } else {
+                    player.sendMessage(configManager.getMessage("error-refund"));
+                    plugin.getLogger().severe("Failed to refund bet for " + player.getName() + " when leaving mid-game");
+                }
+            } else if (gameInProgress && betAmount != null && betAmount > 0) {
+                // Player left mid-game but refunds are disabled - remove bet without refunding
+                plugin.getPlayerBets().remove(player);
+                player.sendMessage(configManager.formatMessage("left-table-bet-forfeit", "amount", betAmount));
+            } else {
+                player.sendMessage(configManager.getMessage("left-table"));
+            }
+            
             // Remove display entities
-            // Remove player displays
             List<ItemDisplay> cardDisplays = playerCardDisplays.remove(player);
             if (cardDisplays != null) {
-                cardDisplays.forEach(ItemDisplay::remove);
+                cardDisplays.forEach(display -> {
+                    if (display != null && !display.isDead()) {
+                        display.remove();
+                    }
+                });
             }
             
             List<ItemDisplay> dealerDisplays = playerDealerDisplays.remove(player);
             if (dealerDisplays != null) {
-                dealerDisplays.forEach(ItemDisplay::remove);
+                dealerDisplays.forEach(display -> {
+                    if (display != null && !display.isDead()) {
+                        display.remove();
+                    }
+                });
             }
             
             // Handle game state
@@ -175,9 +213,9 @@ public class BlackjackTable {
                 endGame();
             } else if (gameInProgress && currentPlayer != null && currentPlayer.equals(player)) {
                 nextTurn();
-                broadcastTableMessage(ChatColor.RED + player.getName() + " left during their turn.");
+                broadcastTableMessage(configManager.formatMessage("player-left-during-turn", "player", player.getName(), "reason", reason));
             } else {
-                broadcastTableMessage(ChatColor.RED + player.getName() + " left the table.");
+                broadcastTableMessage(configManager.formatMessage("player-left-table", "player", player.getName(), "reason", reason));
             }
         }
     }
@@ -222,7 +260,7 @@ public class BlackjackTable {
             
             if (!playersWithoutBets.isEmpty()) {
                 for (org.bukkit.entity.Player player : playersWithoutBets) {
-                    player.sendMessage("§cYou must place a bet before the game can start! Use /bet <amount>");
+                    player.sendMessage(configManager.getMessage("bet-required"));
                 }
                 broadcastTableMessage("§cAll players must place bets before starting!");
                 return;
@@ -323,13 +361,13 @@ public class BlackjackTable {
             // Check if double down is allowed (only on first 2 cards)
             List<Card> hand = playerHands.get(player);
             if (hand.size() != 2) {
-                player.sendMessage(ChatColor.RED + "You can only double down on your first two cards!");
+                player.sendMessage(configManager.getMessage("double-down-first-two-cards"));
                 return;
             }
             
             // Check if player has already doubled down
             if (doubleDownPlayers.contains(player)) {
-                player.sendMessage(ChatColor.RED + "You have already doubled down!");
+                player.sendMessage(configManager.getMessage("double-down-already-used"));
                 return;
             }
             
@@ -340,7 +378,7 @@ public class BlackjackTable {
             }
             
             if (!plugin.getEconomyProvider().hasEnough(player.getUniqueId(), java.math.BigDecimal.valueOf(currentBet))) {
-                player.sendMessage(ChatColor.RED + "You don't have enough money to double down!");
+                player.sendMessage(configManager.getMessage("double-down-insufficient-funds"));
                 return;
             }
             
@@ -520,30 +558,27 @@ public class BlackjackTable {
         }
         
         if (won == null) {
-            // Push
-            stats.setHandsPushed(stats.getHandsPushed() + 1);
+            // Push - use the increment method
+            stats.incrementPushes();
         } else if (won) {
-            // Win
-            stats.setHandsWon(stats.getHandsWon() + 1);
+            // Win - use the increment method which also handles streaks
+            stats.incrementWins();
             stats.addWinnings(winnings);
-            stats.setCurrentStreak(Math.max(0, stats.getCurrentStreak()) + 1);
-            stats.setBestStreak(Math.max(stats.getBestStreak(), stats.getCurrentStreak()));
             
             // Check for blackjack
             List<Card> playerHand = playerHands.get(player);
             if (playerHand.size() == 2 && BlackjackEngine.calculateHandValue(playerHand) == 21) {
-                stats.setBlackjacks(stats.getBlackjacks() + 1);
+                stats.incrementBlackjacks();
             }
         } else {
-            // Loss
-            stats.setHandsLost(stats.getHandsLost() + 1);
+            // Loss - use the increment method which also handles streaks
+            stats.incrementLosses();
             stats.addWinnings(winnings); // winnings will be negative
-            stats.setCurrentStreak(Math.min(0, stats.getCurrentStreak()) - 1);
             
             // Check for bust
             List<Card> playerHand = playerHands.get(player);
             if (BlackjackEngine.calculateHandValue(playerHand) > 21) {
-                stats.setBusts(stats.getBusts() + 1);
+                stats.incrementBusts();
             }
         }
     }
@@ -814,7 +849,9 @@ public class BlackjackTable {
 
         int handValue = BlackjackEngine.calculateHandValue(hand);
         // Send colorized hand info - more compact and readable
-        player.sendMessage(ChatColor.AQUA + "Hand: " + formatHand(hand) + " | " + formatHandValue(handValue));
+        player.sendMessage(configManager.formatMessage("hand-display", 
+            "hand", formatHand(hand), 
+            "hand_value", formatHandValue(handValue)));
     }
 
     private void updateDealerDisplays() {
@@ -839,8 +876,9 @@ public class BlackjackTable {
             if (!dealerHand.isEmpty()) {
                 Card dealerVisibleCard = dealerHand.get(0);
                 // More compact dealer card message
-                player.sendMessage(ChatColor.GREEN + "Dealer shows: " + formatCard(dealerVisibleCard) + 
-                    ChatColor.GRAY + " (" + dealerVisibleCard.getValue() + ")");
+                player.sendMessage(configManager.formatMessage("dealer-shows", 
+                    "card", formatCard(dealerVisibleCard), 
+                    "value", dealerVisibleCard.getValue()));
             }
 
             for (int i = 0; i < dealerHand.size(); i++) {
@@ -884,17 +922,29 @@ public class BlackjackTable {
     }
     
     private void clearAllDisplays() {
-        for (Player player : players) {
-            List<ItemDisplay> cardDisplays = playerCardDisplays.remove(player);
+        // Clear displays for all players (not just current players list)
+        for (List<ItemDisplay> cardDisplays : playerCardDisplays.values()) {
             if (cardDisplays != null) {
-                cardDisplays.forEach(ItemDisplay::remove);
-            }
-            
-            List<ItemDisplay> dealerDisplays = playerDealerDisplays.remove(player);
-            if (dealerDisplays != null) {
-                dealerDisplays.forEach(ItemDisplay::remove);
+                cardDisplays.forEach(display -> {
+                    if (display != null && !display.isDead()) {
+                        display.remove();
+                    }
+                });
             }
         }
+        
+        for (List<ItemDisplay> dealerDisplays : playerDealerDisplays.values()) {
+            if (dealerDisplays != null) {
+                dealerDisplays.forEach(display -> {
+                    if (display != null && !display.isDead()) {
+                        display.remove();
+                    }
+                });
+            }
+        }
+        
+        playerCardDisplays.clear();
+        playerDealerDisplays.clear();
     }
     
     /**
@@ -906,6 +956,10 @@ public class BlackjackTable {
         playerHands.clear();
         playerSeats.clear();
         finishedPlayers.clear();
+        doubleDownPlayers.clear();
+        playerCardDisplays.clear();
+        playerDealerDisplays.clear();
+        lastMessageTime.clear();
     }
     
     // Getters

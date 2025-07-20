@@ -72,8 +72,8 @@ public class ChatUtils {
      * Create betting options with clickable amounts (configurable)
      */
     public static void sendBettingOptions(Player player, com.vortex.blackjack.config.ConfigManager configManager) {
-        player.sendMessage("§e§l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
-        player.sendMessage("§6§l                          QUICK BET");
+        player.sendMessage(configManager.getMessage("quick-bet-border"));
+        player.sendMessage(configManager.getMessage("quick-bet-title"));
         player.sendMessage("");
         
         // Row 1: Small bets
@@ -111,7 +111,7 @@ public class ChatUtils {
         // Custom bet option
         sendClickableSuggestion(player, "§b§l[CUSTOM BET]", "/bet ", "§eClick to enter custom amount");
         
-        player.sendMessage("§e§l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+        player.sendMessage(configManager.getMessage("quick-bet-border"));
     }
     
     /**

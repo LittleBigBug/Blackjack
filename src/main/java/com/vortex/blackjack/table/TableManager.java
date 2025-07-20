@@ -205,9 +205,16 @@ public class TableManager {
      * Remove player from any table they're at
      */
     public void removePlayerFromTable(Player player) {
+        removePlayerFromTable(player, "left the table");
+    }
+    
+    /**
+     * Remove player from any table they're at with custom reason
+     */
+    public void removePlayerFromTable(Player player, String reason) {
         BlackjackTable table = playerTables.remove(player);
         if (table != null) {
-            table.removePlayer(player);
+            table.removePlayer(player, reason);
         }
     }
     

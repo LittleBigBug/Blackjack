@@ -37,8 +37,6 @@ public class CommandManager {
         registerCommand("createtable", new SimpleForwardCommand(plugin, "createtable"));
         registerCommand("removetable", new SimpleForwardCommand(plugin, "removetable"));
         registerCommand("bjversion", new VersionCommand(plugin, plugin.getVersionChecker()));
-        
-        plugin.getLogger().info("Registered individual commands for better user experience!");
     }
     
     private void registerCommand(String name, BlackjackCommand executor) {

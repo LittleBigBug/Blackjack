@@ -57,8 +57,8 @@ public class BetCommand extends BlackjackCommand {
     }
     
     private void showChatBettingOptions(Player player) {
-        player.sendMessage("§6§l=== Quick Bet Menu ===");
-        player.sendMessage("§7Click on an amount to place your bet:");
+        player.sendMessage(plugin.getConfigManager().getMessage("quick-bet-header"));
+        player.sendMessage(plugin.getConfigManager().getMessage("quick-bet-description"));
         
         // Use configurable chat betting options
         com.vortex.blackjack.util.ChatUtils.sendBettingOptions(player, plugin.getConfigManager());
