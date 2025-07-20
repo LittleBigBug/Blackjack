@@ -4,6 +4,7 @@ import com.vortex.blackjack.commands.CommandManager;
 import com.vortex.blackjack.config.ConfigManager;
 import com.vortex.blackjack.economy.EconomyProvider;
 import com.vortex.blackjack.economy.VaultEconomyProvider;
+import com.vortex.blackjack.integration.BlackjackPlaceholderExpansion;
 import com.vortex.blackjack.model.PlayerStats;
 import com.vortex.blackjack.table.BlackjackTable;
 import com.vortex.blackjack.table.TableManager;
@@ -42,6 +43,9 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     
     // GSit integration
     private boolean gSitEnabled = false;
+    
+    // PlaceholderAPI integration
+    private BlackjackPlaceholderExpansion placeholderExpansion;
     
     // Version checker
     private VersionChecker versionChecker;
@@ -106,6 +110,15 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             getLogger().info("GSit not found. Players will not automatically sit when joining tables.");
         }
         
+        // Check for PlaceholderAPI integration
+        if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            placeholderExpansion = new BlackjackPlaceholderExpansion(this);
+            placeholderExpansion.register();
+            getLogger().info("PlaceholderAPI found! Extensive placeholder support enabled.");
+        } else {
+            getLogger().info("PlaceholderAPI not found. Placeholder support disabled.");
+        }
+        
         // Initialize files
         statsFile = new File(getDataFolder(), "stats.yml");
         
@@ -132,6 +145,11 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     
     @Override
     public void onDisable() {
+        // Unregister PlaceholderAPI expansion
+        if (placeholderExpansion != null) {
+            placeholderExpansion.unregister();
+        }
+        
         // Cancel all async tasks
         if (asyncUtils != null) {
             asyncUtils.cancelAllTasks();

@@ -973,6 +973,50 @@ public class BlackjackTable {
     public List<Player> getPlayers() { return new ArrayList<>(players); }
     public boolean isGameInProgress() { return gameInProgress; }
     
+    // PlaceholderAPI support methods
+    public int getPlayerCount() { return players.size(); }
+    public int getAvailableSeats() { return configManager.getMaxPlayers() - players.size(); }
+    public boolean isFull() { return players.size() >= configManager.getMaxPlayers(); }
+    public Location getLocation() { return centerLoc; }
+    
+    public boolean hasPlayerHand(Player player) { return playerHands.containsKey(player); }
+    public int getPlayerHandValue(Player player) { 
+        List<Card> hand = playerHands.get(player);
+        return hand != null ? BlackjackEngine.calculateHandValue(hand) : 0;
+    }
+    public int getPlayerHandSize(Player player) {
+        List<Card> hand = playerHands.get(player);
+        return hand != null ? hand.size() : 0;
+    }
+    
+    public boolean isPlayerTurn(Player player) { return currentPlayer == player; }
+    public boolean isPlayerFinished(Player player) { return finishedPlayers.contains(player); }
+    public boolean hasPlayerBlackjack(Player player) {
+        List<Card> hand = playerHands.get(player);
+        return hand != null && hand.size() == 2 && BlackjackEngine.calculateHandValue(hand) == 21;
+    }
+    public boolean isPlayerBusted(Player player) {
+        List<Card> hand = playerHands.get(player);
+        return hand != null && BlackjackEngine.calculateHandValue(hand) > 21;
+    }
+    public boolean canPlayerDoubleDown(Player player) {
+        List<Card> hand = playerHands.get(player);
+        return hand != null && hand.size() == 2 && !doubleDownPlayers.contains(player);
+    }
+    public boolean hasPlayerDoubledDown(Player player) { return doubleDownPlayers.contains(player); }
+    
+    public int getDealerVisibleValue() {
+        if (dealerHand.isEmpty()) return 0;
+        // Only show first card during game
+        if (gameInProgress && dealerHand.size() >= 2) {
+            List<Card> visibleCards = new ArrayList<>();
+            visibleCards.add(dealerHand.get(0));
+            return BlackjackEngine.calculateHandValue(visibleCards);
+        }
+        return BlackjackEngine.calculateHandValue(dealerHand);
+    }
+    public int getDealerCardCount() { return dealerHand.size(); }
+    
     private void sendGameEndButtons() {
         for (Player player : players) {
             com.vortex.blackjack.util.ChatUtils.sendGameEndOptions(player);

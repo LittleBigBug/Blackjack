@@ -1,10 +1,10 @@
 name: Blackjack
-version: 2.2
+version: 2.3
 main: com.vortex.blackjack.BlackjackPlugin
 description: A physical blackjack table game for Minecraft
 api-version: 1.21
 depend: [Vault]
-softdepend: [GSit]
+softdepend: [GSit, PlaceholderAPI]
 loadbefore: []
 load: POSTWORLD
 
