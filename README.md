@@ -177,7 +177,7 @@ Track your performance with detailed statistics:
 
 ## 🔧 Requirements
 
-- **Minecraft Version**: 1.21.3 or higher
+- **Minecraft Version**: 1.20 or higher
 - **Server Software**: Spigot, Paper, or compatible forks
 - **Java Version**: 21 or higher
 - **Dependencies**: Vault + any economy plugin (EssentialsX, EconomyAPI, CMI, etc.)
