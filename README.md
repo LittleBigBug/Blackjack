@@ -181,7 +181,7 @@ Track your performance with detailed statistics:
 - **Server Software**: Spigot, Paper, or compatible forks
 - **Java Version**: 21 or higher
 - **Dependencies**: Vault + any economy plugin (EssentialsX, EconomyAPI, CMI, etc.)
-- **Resource Pack**: @playing_cards (included)
+- **Resource Pack**: [@playing_cards](https://modrinth.com/resourcepack/bjplayingcards)
 
 ## 🤝 Contributing
 
