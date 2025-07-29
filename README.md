@@ -55,15 +55,7 @@
 /stats         # View your statistics
 ```
 
-## 🔧 Permissions
-
-| Permission | Description | Default |
-|------------|-------------|---------|
-| `blackjack.admin` | Create and remove tables | `op` |
-| `blackjack.play` | Join tables and play games | `true` |
-| `blackjack.stats.others` | View other players' statistics | `op` |
-
-## 🎯 Commands
+## 🎯 Commands & Permissions
 
 | Command | Description | Permission |
 |---------|-------------|------------|
@@ -71,109 +63,65 @@
 | `/removetable` | Remove the nearest table | `blackjack.admin` |
 | `/join` | Join the nearest table | `blackjack.play` |
 | `/leave` | Leave your current table | `blackjack.play` |
-| `/start` | Start a new game | `blackjack.play` |
-| `/hit` | Take another card | `blackjack.play` |
-| `/stand` | End your turn | `blackjack.play` |
 | `/bet <amount>` | Place or change your bet | `blackjack.play` |
-| `/stats [player]` | View statistics (admins can check other players) | `blackjack.play` |
-| `/bjversion` | Check plugin version and update status | `blackjack.admin` |
+| `/hit` / `/stand` | Game actions | `blackjack.play` |
+| `/stats [player]` | View statistics | `blackjack.play` |
+
+## 🔌 PlaceholderAPI Integration
+
+Blackjack includes **40+ PlaceholderAPI placeholders** for extensive integration with other plugins:
+
+- **Player Statistics**: `%blackjack_stats_*%` (wins, losses, win rate, winnings, streaks)
+- **Table Information**: `%blackjack_table_*%` (players, status, location)  
+- **Game State**: `%blackjack_game_*%` (hand value, turn status, dealer info)
+- **Betting**: `%blackjack_bet_*%` (current bets, limits, persistent bets)
+- **Economy**: `%blackjack_economy_*%` (balance, affordability checks)
+
+📖 **[View Complete PlaceholderAPI Documentation](https://github.com/DefectiveVortex/Blackjack/blob/main/PLACEHOLDERAPI.md)**
+
+### Quick Examples:
+```yaml
+# Scoreboard integration
+- "&fWin Rate: &b%blackjack_stats_win_rate%%"
+- "&fAt Table: %blackjack_table_at_table%"
+- "&fCurrent Bet: &6%blackjack_bet_current_formatted%"
+```
 
 ## 🔌 Plugin Integration
 
-### Version Checking
-- **Automatic Updates**: Admins are notified when joining if a new version is available
-- **Manual Check**: Use `/bjversion` to check current version and update status
-- **GitHub Integration**: Automatically checks releases from the official repository
-
-### GSit Support
-- **Automatic Detection**: Plugin automatically detects if GSit is installed
-- **Enhanced Experience**: Players automatically sit when joining tables
-- **Graceful Fallback**: Works perfectly without GSit if not available
+### Economy & Features
+- **Vault Compatible**: Works with any Vault-supported economy plugin
+- **GSit Support**: Auto-sit at tables when GSit is installed
+- **Version Checking**: Automatic update notifications for admins
 
 ## ⚙️ Configuration
 
-### Core Settings
+Customize your blackjack experience:
+
 ```yaml
-# Betting Configuration
+# Betting & Game Settings
 betting:
   min-bet: 10
   max-bet: 10000
   cooldown-ms: 2000
 
-# Table Settings
 table:
   max-players: 4
   max-join-distance: 10.0
-  table-material: GREEN_TERRACOTTA
-  chair-material: DARK_OAK_STAIRS
 
-# Game Rules
-game:
-  hit-soft-17: false
-
-# Display Settings
-display:
-  card:
-    scale: 0.35
-    spacing: 0.25
-```
-
-### Audio & Visual
-```yaml
+# Audio & Visual Effects
 sounds:
   enabled: true
-  card-deal:
-    sound: BLOCK_WOODEN_BUTTON_CLICK_ON
-    volume: 1.0
-    pitch: 1.2
-
 particles:
   enabled: true
-  win:
-    type: HAPPY_VILLAGER
-  lose:
-    type: ANGRY_VILLAGER
 ```
 
-## 🎲 Gameplay Features
+## 🎲 Game Features
 
-### 🃏 **Card Display**
-- **Realistic 3D Cards**: Custom resource pack with detailed card textures
-- **Smooth Animations**: Cards dealt with proper positioning and rotation
-- **Hidden Dealer Card**: Traditional blackjack dealer hole card mechanics
-- **Color-Coded Suits**: Red hearts/diamonds, dark gray spades/clubs
-
-### 🎯 **Game Flow**
-1. **Join Table**: Players approach and join available seats
-2. **Place Bets**: Set your wager before the game begins
-3. **Deal Cards**: Each player receives 2 cards, dealer gets 1 up + 1 down
-4. **Player Turns**: Hit or stand to reach 21 without busting
-5. **Dealer Play**: Dealer follows standard rules (hits on 16, stands on 17)
-6. **Payouts**: Automatic economy integration with instant payouts
-
-### 🏆 **Results**
-- **Blackjack**: 3:2 payout (bet × 2.5)
-- **Regular Win**: 2:1 payout (bet × 2)
-- **Push (Tie)**: Bet returned
-- **Loss**: Bet forfeited
-
-## 📈 Statistics Tracking
-
-Track your performance with detailed statistics:
-
-```
-┌─────────────────────────────────────┐
-│              Your Stats             │
-├─────────────────────────────────────┤
-│ Hands Played: 127                   │
-│ Wins: 58 (45.7%)                    │
-│ Losses: 51 (40.2%)                  │
-│ Pushes: 18 (14.2%)                  │
-│ Current Streak: 3 wins              │
-│ Best Streak: 7 wins                 │
-│ Total Winnings: $2,450              │
-└─────────────────────────────────────┘
-```
+- **🃏 3D Card Displays**: Realistic card animations with custom resource pack
+- **🎯 Professional Rules**: Standard blackjack with configurable dealer behavior
+- **🏆 Smart Payouts**: Blackjack 3:2, Regular wins 2:1, automatic economy integration
+- **� Statistics**: Track wins, losses, streaks, and total winnings
 
 ## 🔧 Requirements
 
