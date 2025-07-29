@@ -238,4 +238,52 @@ public class ConfigManager {
     public boolean shouldRefundOnLeave() {
         return config.getBoolean("game-settings.refund-on-leave", true);
     }
+    
+    // Button configuration methods
+    public String getButtonText(String buttonName) {
+        return ChatColor.translateAlternateColorCodes('&', 
+            messagesConfig.getString("buttons." + buttonName + ".text", "&7[" + buttonName.toUpperCase() + "]"));
+    }
+    
+    public String getButtonCommand(String buttonName) {
+        return messagesConfig.getString("buttons." + buttonName + ".command", "/" + buttonName);
+    }
+    
+    public String getButtonHover(String buttonName) {
+        return ChatColor.translateAlternateColorCodes('&', 
+            messagesConfig.getString("buttons." + buttonName + ".hover", "Click to " + buttonName));
+    }
+    
+    public String getBetColorByAmount(int amount) {
+        if (amount >= 5000) {
+            return ChatColor.translateAlternateColorCodes('&', messagesConfig.getString("buttons.huge-bet-color", "&d"));
+        } else if (amount >= 1000) {
+            return ChatColor.translateAlternateColorCodes('&', messagesConfig.getString("buttons.large-bet-color", "&c"));
+        } else if (amount >= 100) {
+            return ChatColor.translateAlternateColorCodes('&', messagesConfig.getString("buttons.medium-bet-color", "&e"));
+        } else {
+            return ChatColor.translateAlternateColorCodes('&', messagesConfig.getString("buttons.small-bet-color", "&a"));
+        }
+    }
+    
+    public String getGameActionPrompt() {
+        return ChatColor.translateAlternateColorCodes('&', 
+            messagesConfig.getString("game-action-prompt", "&7Your turn: "));
+    }
+    
+    public String getGameActionSeparator() {
+        return ChatColor.translateAlternateColorCodes('&', 
+            messagesConfig.getString("game-action-separator", "&7 | "));
+    }
+    
+    public String getPostGamePrompt() {
+        return ChatColor.translateAlternateColorCodes('&', 
+            messagesConfig.getString("post-game-prompt", "&7Choose: "));
+    }
+    
+    // Betting category labels
+    public String getBettingCategoryLabel(String category) {
+        return ChatColor.translateAlternateColorCodes('&', 
+            messagesConfig.getString("betting-category-" + category, "&7" + category.substring(0, 1).toUpperCase() + category.substring(1) + ": "));
+    }
 }

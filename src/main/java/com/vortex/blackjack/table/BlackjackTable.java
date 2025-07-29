@@ -128,7 +128,7 @@ public class BlackjackTable {
                     }
                 }
                 
-                broadcastTableMessage(ChatColor.GREEN + player.getName() + " joined the table!");
+                broadcastTableMessage(configManager.formatMessage("player-joined-table", "player", player.getName()));
                 
                 // Show betting options if UX features enabled
                 if (configManager.areParticlesEnabled()) { // Using as UX enabled check
@@ -249,7 +249,7 @@ public class BlackjackTable {
             }
             
             if (players.isEmpty()) {
-                broadcastTableMessage("§cCannot start game with no players!");
+                broadcastTableMessage(configManager.getMessage("game-error-no-players"));
                 return;
             }
             
@@ -268,7 +268,7 @@ public class BlackjackTable {
                 for (org.bukkit.entity.Player player : playersWithoutBets) {
                     player.sendMessage(configManager.getMessage("bet-required"));
                 }
-                broadcastTableMessage("§cAll players must place bets before starting!");
+                broadcastTableMessage(configManager.getMessage("game-error-all-must-bet"));
                 return;
             }
             
@@ -296,10 +296,10 @@ public class BlackjackTable {
             
             // Start first player's turn
             currentPlayer = players.get(0);
-            broadcastTableMessage(ChatColor.GREEN + "Game started! " + ChatColor.AQUA + currentPlayer.getName() + "'s turn");
+            broadcastTableMessage(configManager.formatMessage("game-started", "player", currentPlayer.getName()));
             
             // Send interactive turn message (doubledown available on first turn)
-            ChatUtils.sendGameActionBar(currentPlayer, true);
+            ChatUtils.sendGameActionBar(currentPlayer, configManager, true);
         }
     }
     
@@ -324,17 +324,17 @@ public class BlackjackTable {
             
             if (BlackjackEngine.isBusted(hand)) {
                 finishedPlayers.add(player);
-                broadcastTableMessage(player.getName() + " " + ChatColor.RED + "BUSTS!" + ChatColor.RESET);
+                broadcastTableMessage(configManager.formatMessage("player-busts", "player", player.getName()));
                 playLoseSound(player);
                 nextTurn();
             } else if (value == 21) {
                 finishedPlayers.add(player);
-                broadcastTableMessage(player.getName() + " " + ChatColor.GOLD + "hits 21!" + ChatColor.RESET);
+                broadcastTableMessage(configManager.formatMessage("player-hits-21", "player", player.getName()));
                 playWinSound(player);
                 nextTurn();
             } else {
                 // Send action buttons again (no doubledown after hitting)
-                ChatUtils.sendGameActionBar(player, false);
+                ChatUtils.sendGameActionBar(player, configManager, false);
             }
         }
     }
@@ -350,7 +350,9 @@ public class BlackjackTable {
             
             finishedPlayers.add(player);
             int value = BlackjackEngine.calculateHandValue(playerHands.get(player));
-            broadcastTableMessage(player.getName() + " " + ChatColor.BLUE + "stands" + ChatColor.RESET + " with " + formatHandValue(value));
+            broadcastTableMessage(configManager.formatMessage("player-stands", 
+                "player", player.getName(), 
+                "value", formatHandValue(value)));
             nextTurn();
         }
     }
@@ -403,16 +405,18 @@ public class BlackjackTable {
             updateCardDisplays(player, hand);
             
             int value = BlackjackEngine.calculateHandValue(hand);
-            broadcastTableMessage(player.getName() + " " + ChatColor.GOLD + "DOUBLES DOWN" + ChatColor.RESET + " with " + formatHandValue(value));
+            broadcastTableMessage(configManager.formatMessage("player-doubles-down", 
+                "player", player.getName(), 
+                "value", formatHandValue(value)));
             
             // Player is automatically done after double down
             finishedPlayers.add(player);
             
             if (BlackjackEngine.isBusted(hand)) {
-                broadcastTableMessage(player.getName() + " " + ChatColor.RED + "BUSTS!" + ChatColor.RESET);
+                broadcastTableMessage(configManager.formatMessage("player-busts", "player", player.getName()));
                 playLoseSound(player);
             } else if (value == 21) {
-                broadcastTableMessage(player.getName() + " " + ChatColor.GOLD + "hits 21!" + ChatColor.RESET);
+                broadcastTableMessage(configManager.formatMessage("player-hits-21", "player", player.getName()));
                 playWinSound(player);
             }
             
@@ -441,12 +445,12 @@ public class BlackjackTable {
         
         if (currentPlayer != null && !finishedPlayers.contains(currentPlayer)) {
             // More compact turn announcement
-            broadcastTableMessage(ChatColor.AQUA + currentPlayer.getName() + "'s turn");
+            broadcastTableMessage(configManager.formatMessage("player-turn", "player", currentPlayer.getName()));
             
             // Show doubledown only if player has exactly 2 cards and hasn't doubled down yet
             List<Card> hand = playerHands.get(currentPlayer);
             boolean canDoubleDown = hand != null && hand.size() == 2 && !doubleDownPlayers.contains(currentPlayer);
-            ChatUtils.sendGameActionBar(currentPlayer, canDoubleDown);
+            ChatUtils.sendGameActionBar(currentPlayer, configManager, canDoubleDown);
         } else {
             endGame();
         }
@@ -491,7 +495,7 @@ public class BlackjackTable {
                 
                 // Show game ended message and buttons after payouts
                 if (!players.isEmpty()) {
-                    broadcastTableMessage(ChatColor.GREEN + "Game ended!");
+                    broadcastTableMessage(configManager.getMessage("game-ended"));
                     sendGameEndButtons();
                 }
             }, 20L); // 1 second delay
@@ -522,7 +526,9 @@ public class BlackjackTable {
                 // Blackjack pays 3:2
                 int blackjackPayout = (int) (betAmount * 2.5); // bet + 1.5x bet = 2.5x bet
                 plugin.getEconomyProvider().add(player.getUniqueId(), java.math.BigDecimal.valueOf(blackjackPayout));
-                broadcastTableMessage(ChatColor.GOLD + "" + ChatColor.BOLD + player.getName() + " BLACKJACK! " + ChatColor.GREEN + "+$" + blackjackPayout);
+                broadcastTableMessage(configManager.formatMessage("player-blackjack", 
+                    "player", player.getName(), 
+                    "payout", String.valueOf(blackjackPayout)));
                 playWinSound(player);
                 updatePlayerStats(player, true, (double) blackjackPayout);
                 break;
@@ -531,7 +537,9 @@ public class BlackjackTable {
                 // Regular win pays 2:1 (bet back + equal amount)
                 int winPayout = betAmount * 2;
                 plugin.getEconomyProvider().add(player.getUniqueId(), java.math.BigDecimal.valueOf(winPayout));
-                broadcastTableMessage(ChatColor.GREEN + "" + ChatColor.BOLD + player.getName() + " WINS! " + ChatColor.GREEN + "+$" + winPayout);
+                broadcastTableMessage(configManager.formatMessage("player-wins", 
+                    "player", player.getName(), 
+                    "payout", String.valueOf(winPayout)));
                 playWinSound(player);
                 updatePlayerStats(player, true, (double) betAmount);
                 break;
@@ -539,14 +547,18 @@ public class BlackjackTable {
             case DEALER_BLACKJACK:
             case PLAYER_BUST:
                 // Player loses their bet (already taken when bet was placed)
-                broadcastTableMessage(ChatColor.RED + "" + ChatColor.BOLD + player.getName() + " loses -$" + betAmount);
+                broadcastTableMessage(configManager.formatMessage("player-loses", 
+                    "player", player.getName(), 
+                    "amount", String.valueOf(betAmount)));
                 playLoseSound(player);
                 updatePlayerStats(player, false, (double) -betAmount);
                 break;
             case PUSH:
                 // Push - return bet to player
                 plugin.getEconomyProvider().add(player.getUniqueId(), java.math.BigDecimal.valueOf(betAmount));
-                broadcastTableMessage(ChatColor.YELLOW + "" + ChatColor.BOLD + player.getName() + " PUSH (tie) - $" + betAmount + " returned");
+                broadcastTableMessage(configManager.formatMessage("player-push", 
+                    "player", player.getName(), 
+                    "amount", String.valueOf(betAmount)));
                 player.playSound(player.getLocation(), configManager.getPushSound(), 1.0F, 1.0F);
                 updatePlayerStats(player, null, 0.0); // Push doesn't count as win or loss
                 break;
@@ -715,7 +727,14 @@ public class BlackjackTable {
         
         // Only send if it's been more than 1.5 seconds since last message, OR if it's a critical message
         if (isCriticalMessage || lastTime == null || currentTime - lastTime > 1500) {
-            player.sendMessage(ChatColor.YELLOW + message);
+            // Check if message is already formatted (contains color codes or special characters)
+            if (message.contains("§") || message.contains("&") || isCriticalMessage) {
+                // Send directly - already formatted
+                player.sendMessage(message);
+            } else {
+                // Wrap in table broadcast format
+                player.sendMessage(configManager.formatMessage("table-message-broadcast", "message", message));
+            }
             lastMessageTime.put(playerId, currentTime);
         }
     }

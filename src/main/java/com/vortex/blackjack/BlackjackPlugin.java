@@ -286,8 +286,6 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             messagesConfig.set("help-stand", "&e/stand &7- End your turn");
             messagesConfig.set("help-stats", "&e/bj stats &7- View your statistics");
             messagesConfig.set("help-stats-others", "&e/bj stats <player> &7- View another player's statistics");
-            messagesConfig.set("help-tip", "&a✨ TIP: Use individual commands like &e/bet&a, &e/hit&a, &e/stand &ainstead of &e/bj&a!");
-            messagesConfig.set("help-bet-tip", "&a✨ Type &e/bet &aalone to open the visual betting menu!");
             
             // Table broadcast messages
             messagesConfig.set("player-left-during-turn", "&c%player% %reason% during their turn.");
@@ -788,10 +786,6 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         if (player.hasPermission("blackjack.stats.others")) {
             player.sendMessage(configManager.getMessage("help-stats-others"));
         }
-        
-        player.sendMessage("");
-        player.sendMessage(configManager.getMessage("help-tip"));
-        player.sendMessage(configManager.getMessage("help-bet-tip"));
     }
     
     // Getters for managers (used by other classes)

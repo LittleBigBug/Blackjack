@@ -35,32 +35,32 @@ public class ChatUtils {
     /**
      * Create a game action bar with clickable options
      */
-    public static void sendGameActionBar(Player player) {
-        sendGameActionBar(player, true); // Default to showing doubledown
+    public static void sendGameActionBar(Player player, com.vortex.blackjack.config.ConfigManager configManager) {
+        sendGameActionBar(player, configManager, true); // Default to showing doubledown
     }
     
     /**
      * Create a game action bar with clickable options
      */
-    public static void sendGameActionBar(Player player, boolean showDoubleDown) {
-        TextComponent hitButton = new TextComponent("§a§l[HIT]");
-        hitButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/hit"));
+    public static void sendGameActionBar(Player player, com.vortex.blackjack.config.ConfigManager configManager, boolean showDoubleDown) {
+        TextComponent hitButton = new TextComponent(configManager.getButtonText("hit"));
+        hitButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, configManager.getButtonCommand("hit")));
         
-        TextComponent standButton = new TextComponent("§c§l[STAND]");
-        standButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/stand"));
+        TextComponent standButton = new TextComponent(configManager.getButtonText("stand"));
+        standButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, configManager.getButtonCommand("stand")));
         
-        TextComponent separator = new TextComponent("§7 | ");
+        TextComponent separator = new TextComponent(configManager.getGameActionSeparator());
         
         // Combine components
-        TextComponent fullMessage = new TextComponent("§7Your turn: ");
+        TextComponent fullMessage = new TextComponent(configManager.getGameActionPrompt());
         fullMessage.addExtra(hitButton);
         fullMessage.addExtra(separator);
         fullMessage.addExtra(standButton);
         
         // Add doubledown button if appropriate
         if (showDoubleDown) {
-            TextComponent doubleDownButton = new TextComponent("§6§l[DOUBLE DOWN]");
-            doubleDownButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/doubledown"));
+            TextComponent doubleDownButton = new TextComponent(configManager.getButtonText("double-down"));
+            doubleDownButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, configManager.getButtonCommand("double-down")));
             fullMessage.addExtra(separator);
             fullMessage.addExtra(doubleDownButton);
         }
@@ -77,47 +77,59 @@ public class ChatUtils {
         player.sendMessage("");
         
         // Row 1: Small bets
-        TextComponent smallBets = new TextComponent("§7Small: ");
+        TextComponent smallBets = new TextComponent(configManager.getBettingCategoryLabel("small"));
         java.util.List<Integer> smallBetAmounts = configManager.getSmallBets();
         for (int i = 0; i < smallBetAmounts.size(); i++) {
             if (i > 0) smallBets.addExtra(" ");
             int amount = smallBetAmounts.get(i);
-            addBetButton(smallBets, "§a$" + amount, "/bet " + amount, "§eClick to bet $" + amount);
+            String buttonText = configManager.getBetColorByAmount(amount) + "$" + amount;
+            addBetButton(smallBets, buttonText, "/bet " + amount, "§eClick to bet $" + amount);
         }
         player.spigot().sendMessage(smallBets);
         
         // Row 2: Medium bets
-        TextComponent mediumBets = new TextComponent("§7Medium: ");
+        TextComponent mediumBets = new TextComponent(configManager.getBettingCategoryLabel("medium"));
         java.util.List<Integer> mediumBetAmounts = configManager.getMediumBets();
         for (int i = 0; i < mediumBetAmounts.size(); i++) {
             if (i > 0) mediumBets.addExtra(" ");
             int amount = mediumBetAmounts.get(i);
-            addBetButton(mediumBets, "§e$" + amount, "/bet " + amount, "§eClick to bet $" + amount);
+            String buttonText = configManager.getBetColorByAmount(amount) + "$" + amount;
+            addBetButton(mediumBets, buttonText, "/bet " + amount, "§eClick to bet $" + amount);
         }
         player.spigot().sendMessage(mediumBets);
         
         // Row 3: Large bets
-        TextComponent largeBets = new TextComponent("§7Large: ");
+        TextComponent largeBets = new TextComponent(configManager.getBettingCategoryLabel("large"));
         java.util.List<Integer> largeBetAmounts = configManager.getLargeBets();
         for (int i = 0; i < largeBetAmounts.size(); i++) {
             if (i > 0) largeBets.addExtra(" ");
             int amount = largeBetAmounts.get(i);
-            addBetButton(largeBets, "§c$" + amount, "/bet " + amount, "§eClick to bet $" + amount);
+            String buttonText = configManager.getBetColorByAmount(amount) + "$" + amount;
+            addBetButton(largeBets, buttonText, "/bet " + amount, "§eClick to bet $" + amount);
         }
         player.spigot().sendMessage(largeBets);
         
         player.sendMessage("");
         
         // Custom bet option
-        sendClickableSuggestion(player, "§b§l[CUSTOM BET]", "/bet ", "§eClick to enter custom amount");
+        sendClickableSuggestion(player, configManager.getButtonText("custom-bet"), 
+            configManager.getButtonCommand("custom-bet"), configManager.getButtonHover("custom-bet"));
         
         player.sendMessage(configManager.getMessage("quick-bet-border"));
     }
     
     /**
-     * Legacy method for backwards compatibility - uses default values
+     * Legacy method for backwards compatibility - uses configurable values or defaults
      */
     public static void sendBettingOptions(Player player) {
+        // Use default config values for legacy support
+        sendBettingOptionsLegacy(player);
+    }
+    
+    /**
+     * Legacy betting options with configurable styling
+     */
+    private static void sendBettingOptionsLegacy(Player player) {
         player.sendMessage("§e§l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
         player.sendMessage("§6§l                          QUICK BET");
         player.sendMessage("");
@@ -159,6 +171,27 @@ public class ChatUtils {
     
     /**
      * Send clickable "Play Again" and "Leave Table" buttons
+     */
+    public static void sendGameEndOptions(Player player, com.vortex.blackjack.config.ConfigManager configManager) {
+        TextComponent playAgainButton = new TextComponent(configManager.getButtonText("play-again"));
+        playAgainButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, configManager.getButtonCommand("play-again")));
+        
+        TextComponent leaveButton = new TextComponent(configManager.getButtonText("leave-table"));
+        leaveButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, configManager.getButtonCommand("leave-table")));
+        
+        TextComponent separator = new TextComponent(configManager.getGameActionSeparator());
+        
+        // Combine components
+        TextComponent fullMessage = new TextComponent(configManager.getPostGamePrompt());
+        fullMessage.addExtra(playAgainButton);
+        fullMessage.addExtra(separator);
+        fullMessage.addExtra(leaveButton);
+        
+        player.spigot().sendMessage(fullMessage);
+    }
+    
+    /**
+     * Legacy method for backwards compatibility
      */
     public static void sendGameEndOptions(Player player) {
         TextComponent playAgainButton = new TextComponent("§a§l[Play Again]");

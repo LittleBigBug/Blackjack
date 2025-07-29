@@ -2,7 +2,6 @@ package com.vortex.blackjack.util;
 
 import com.vortex.blackjack.BlackjackPlugin;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 import java.io.BufferedReader;
@@ -100,15 +99,17 @@ public class VersionChecker {
         
         if (isOutdated) {
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                admin.sendMessage(ChatColor.YELLOW + "╔═══════════════════════════════════════════════════════════════════════════╗");
-                admin.sendMessage(ChatColor.YELLOW + "║ " + ChatColor.GOLD + "⚠ BLACKJACK PLUGIN UPDATE AVAILABLE" + ChatColor.YELLOW + "                                  ║");
-                admin.sendMessage(ChatColor.YELLOW + "║                                                                           ║");
-                admin.sendMessage(ChatColor.YELLOW + "║ " + ChatColor.WHITE + "Current Version: " + ChatColor.RED + currentVersion + ChatColor.YELLOW + "                                                  ║");
-                admin.sendMessage(ChatColor.YELLOW + "║ " + ChatColor.WHITE + "Latest Version:  " + ChatColor.GREEN + latestVersion + ChatColor.YELLOW + "                                                  ║");
-                admin.sendMessage(ChatColor.YELLOW + "║                                                                           ║");
-                admin.sendMessage(ChatColor.YELLOW + "║ " + ChatColor.AQUA + "Download: " + ChatColor.BLUE + "https://github.com/" + gitHubRepo + "/releases/latest" + ChatColor.YELLOW + "     ║");
-                admin.sendMessage(ChatColor.YELLOW + "║ " + ChatColor.GRAY + "Use " + ChatColor.WHITE + "/bjversion" + ChatColor.GRAY + " for more details" + ChatColor.YELLOW + "                                    ║");
-                admin.sendMessage(ChatColor.YELLOW + "╚═══════════════════════════════════════════════════════════════════════════╝");
+                String downloadUrl = "https://github.com/" + gitHubRepo + "/releases/latest";
+                
+                admin.sendMessage("§e╔═══════════════════════════════════════════════════════════════════════════╗");
+                admin.sendMessage("§e║ §6⚠ BLACKJACK PLUGIN UPDATE AVAILABLE§e                                  ║");
+                admin.sendMessage("§e║                                                                           ║");
+                admin.sendMessage("§e║ §fCurrent Version: §c" + currentVersion + "§e                                                  ║");
+                admin.sendMessage("§e║ §fLatest Version:  §a" + latestVersion + "§e                                                  ║");
+                admin.sendMessage("§e║                                                                           ║");
+                admin.sendMessage("§e║ §bDownload: §9" + downloadUrl + "§e     ║");
+                admin.sendMessage("§e║ §7Use §f/bjversion§7 for more details§e                                    ║");
+                admin.sendMessage("§e╚═══════════════════════════════════════════════════════════════════════════╝");
             }, 40L); // Delay 2 seconds after join
         }
     }
@@ -118,18 +119,18 @@ public class VersionChecker {
      */
     public String getVersionStatus() {
         if (checkFailed) {
-            return ChatColor.RED + "Failed to check for updates. Please check your internet connection.";
+            return "§cFailed to check for updates. Please check your internet connection.";
         }
         
         if (latestVersion == null) {
-            return ChatColor.YELLOW + "Checking for updates...";
+            return "§eChecking for updates...";
         }
         
         if (isOutdated) {
-            return ChatColor.RED + "Outdated! Current: " + currentVersion + " | Latest: " + ChatColor.GREEN + latestVersion +
-                   ChatColor.RED + "\nDownload: " + ChatColor.BLUE + "https://github.com/" + gitHubRepo + "/releases/latest";
+            String downloadUrl = "https://github.com/" + gitHubRepo + "/releases/latest";
+            return "§cOutdated! Current: " + currentVersion + " | Latest: §a" + latestVersion + "§c\nDownload: §9" + downloadUrl;
         } else {
-            return ChatColor.GREEN + "Up to date! Current version: " + currentVersion;
+            return "§aUp to date! Current version: " + currentVersion;
         }
     }
     

@@ -51,9 +51,15 @@ error-payout: "&cAn error occurred processing your payout. Contact a staff membe
 # Quick bet menu
 quick-bet-header: "&6&l=== Quick Bet Menu ==="
 quick-bet-description: "&7Click on an amount to place your bet:"
+quick-bet-border: "&e&l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
+quick-bet-title: "&6&l                          QUICK BET"
+
+# Betting category labels
+betting-category-small: "&7Small: "
+betting-category-medium: "&7Medium: "
+betting-category-large: "&7Large: "
 
 # Game flow
-game-started: "&aGame started! %player%'s turn."
 your-turn: "&aIt's your turn!"
 hand-value: "&aYour hand value: %value%"
 dealer-card: "&aDealer's visible card: %card% | Value: %value%"
@@ -64,7 +70,7 @@ player-busts: "&c%player% busts!"
 player-stands: "&a%player% stands at %value%!"
 player-wins: "&a%player% wins and gets back $%amount%!"
 player-loses: "&c%player% loses their bet of $%amount%!"
-player-pushes: "&e%player% pushes and gets their bet of $%amount% back!"
+player-pushes: "&e%player% pushes and gets their bet of %amount% back!"
 player-blackjack: "&6%player% got BLACKJACK and wins $%amount%!"
 
 # Double down
@@ -109,35 +115,88 @@ help-hit: "&e/hit &7- Take another card"
 help-stand: "&e/stand &7- End your turn"
 help-stats: "&e/bj stats &7- View your statistics"
 help-stats-others: "&e/bj stats <player> &7- View another player's statistics"
-help-tip: "&a✨ TIP: Use individual commands like &e/bet&a, &e/hit&a, &e/stand &ainstead of &e/bj&a!"
-help-bet-tip: "&a✨ Type &e/bet &aalone to open the visual betting menu!"
-
-# Version command
-version-header: "&6BLACKJACK PLUGIN VERSION INFO"
-version-plugin: "&fPlugin: &aBlackjack"
-version-author: "&fAuthor: &bDefectiveVortex"
-version-current: "&fCurrent Version: &a%version%"
-version-latest: "&fLatest Version: &a%version%"
-version-update-available: "&c⚠ UPDATE AVAILABLE!"
-version-up-to-date: "&a✓ UP TO DATE!"
-version-download: "&bDownload: &9%url%"
-version-github: "&7GitHub: &9%url%"
-version-no-permission: "&cYou don't have permission to use this command."
-
-# Update notifications
-update-notification-border: "&e╔═══════════════════════════════════════════════════════════════════════════╗"
-update-notification-title: "&e║ &6⚠ BLACKJACK PLUGIN UPDATE AVAILABLE&e                                  ║"
-update-notification-empty: "&e║                                                                           ║"
-update-notification-current: "&e║ &fCurrent Version: &c%version%&e                                                  ║"
-update-notification-latest: "&e║ &fLatest Version:  &a%version%&e                                                  ║"
-update-notification-download: "&e║ &bDownload: &9%url%&e     ║"
-update-notification-command: "&e║ &7Use &f/bjversion&7 for more details&e                                    ║"
-update-notification-border-bottom: "&e╚═══════════════════════════════════════════════════════════════════════════╝"
-
-# Chat utilities
-quick-bet-border: "&e&l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
-quick-bet-title: "&6&l                          QUICK BET"
 
 # Table broadcast messages
+table-message-broadcast: "&e%message%"
 player-left-during-turn: "&c%player% %reason% during their turn."
 player-left-table: "&c%player% %reason%."
+
+# Game status messages
+player-joined-table: "&a%player% joined the table!"
+game-started: "&aGame started! &b%player%'s turn"
+game-ended: "&aGame ended!"
+player-turn: "&b%player%'s turn"
+player-hits-21: "%player% &6hits 21!&r"
+player-doubles-down: "%player% &6DOUBLES DOWN&r with %value%"
+
+# Game result messages  
+player-blackjack: "&6&l%player% BLACKJACK! &a+$%payout%"
+player-wins: "&a&l%player% WINS! &a+$%payout%"
+player-loses: "&c&l%player% loses -$%amount%"
+player-push: "&e&l%player% PUSH (tie) - $%amount% returned"
+
+# Balance display
+balance-display: "&aYour balance: &6%balance%%currency% &a| Current bet: &6%current-bet%%currency%"
+
+# Hardcoded game error messages (for consistent display)
+game-error-no-players: "&cCannot start game with no players!"
+game-error-all-must-bet: "&cAll players must place bets before starting!"
+
+# Button configuration
+buttons:
+  # Game action buttons
+  hit:
+    text: "&a&l[HIT]"
+    command: "/hit"
+    hover: "&eClick to take another card"
+  
+  stand:
+    text: "&c&l[STAND]"
+    command: "/stand"
+    hover: "&eClick to end your turn"
+  
+  double-down:
+    text: "&6&l[DOUBLE DOWN]"
+    command: "/doubledown"
+    hover: "&eClick to double your bet and take one card"
+  
+  # Post-game buttons
+  play-again:
+    text: "&a&l[Play Again]"
+    command: "/start"
+    hover: "&eClick to start a new game"
+  
+  leave-table:
+    text: "&c&l[Leave Table]"
+    command: "/leave"
+    hover: "&eClick to leave the table"
+  
+  # Betting buttons
+  custom-bet:
+    text: "&b&l[CUSTOM BET]"
+    command: "/bet "
+    hover: "&eClick to enter custom amount"
+  
+  # Bet amount colors
+  small-bet-color: "&a"    # Green for small bets
+  medium-bet-color: "&e"   # Yellow for medium bets  
+  large-bet-color: "&c"    # Red for large bets
+  huge-bet-color: "&d"     # Pink for huge bets
+
+# Game action prompts
+game-action-prompt: "&7Your turn: "
+game-action-separator: "&7 | "
+post-game-prompt: "&7Choose: "
+
+# Console and system messages
+console-economy-provider-not-found: "No supported economy plugin found! Please install Vault with an economy plugin."
+console-economy-provider-loaded: "Economy provider loaded: %provider%"
+console-gsit-found: "GSit found! Players will automatically sit when joining tables."
+console-gsit-not-found: "GSit not found. Players will not automatically sit when joining tables."
+console-placeholderapi-found: "PlaceholderAPI found! Extensive placeholder support enabled."
+console-placeholderapi-not-found: "PlaceholderAPI not found. Placeholder support disabled."
+console-stats-autosave-scheduled: "Stats auto-save scheduled every %interval% seconds"
+console-blackjack-enabled: "Blackjack enabled successfully!"
+console-blackjack-disabled: "Blackjack plugin disabled!"
+console-messages-created: "Created messages.yml file"
+console-default-messages-created: "Creating default messages.yml file"
