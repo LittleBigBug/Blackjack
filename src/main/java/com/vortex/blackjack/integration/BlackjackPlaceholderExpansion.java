@@ -1,7 +1,9 @@
 package com.vortex.blackjack.integration;
 
 import com.vortex.blackjack.BlackjackPlugin;
+import com.vortex.blackjack.model.PlayerStats;
 import com.vortex.blackjack.table.BlackjackTable;
+import com.vortex.blackjack.util.GenericUtils;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -108,34 +110,23 @@ public class BlackjackPlaceholderExpansion extends PlaceholderExpansion {
             return param.equals("has_played") ? "false" : "0";
         }
         
-        // Load all stats from file
-        int handsWon = statsConfig.getInt(path + "handsWon", 0);
-        int handsLost = statsConfig.getInt(path + "handsLost", 0);
-        int handsPushed = statsConfig.getInt(path + "handsPushed", 0);
-        int currentStreak = statsConfig.getInt(path + "currentStreak", 0);
-        int bestStreak = statsConfig.getInt(path + "bestStreak", 0);
-        double totalWinnings = statsConfig.getDouble(path + "totalWinnings", 0.0);
-        int blackjacks = statsConfig.getInt(path + "blackjacks", 0);
-        int busts = statsConfig.getInt(path + "busts", 0);
-        
-        // Calculate derived values
-        int totalHands = handsWon + handsLost + handsPushed;
-        double winRate = totalHands > 0 ? (double) handsWon / totalHands * 100 : 0.0;
+        // Use generic method to load player stats
+        PlayerStats stats = GenericUtils.loadPlayerStats(statsConfig, player.getUniqueId());
         
         return switch (param) {
-            case "hands_won" -> String.valueOf(handsWon);
-            case "hands_lost" -> String.valueOf(handsLost);
-            case "hands_pushed" -> String.valueOf(handsPushed);
-            case "total_hands" -> String.valueOf(totalHands);
-            case "blackjacks" -> String.valueOf(blackjacks);
-            case "busts" -> String.valueOf(busts);
-            case "current_streak" -> String.valueOf(currentStreak);
-            case "best_streak" -> String.valueOf(bestStreak);
-            case "win_rate" -> percentFormat.format(winRate);
-            case "win_rate_raw" -> decimalFormat.format(winRate / 100);
-            case "total_winnings" -> decimalFormat.format(totalWinnings);
-            case "total_winnings_formatted" -> formatMoney(totalWinnings);
-            case "has_played" -> totalHands > 0 ? "true" : "false";
+            case "hands_won" -> String.valueOf(stats.getHandsWon());
+            case "hands_lost" -> String.valueOf(stats.getHandsLost());
+            case "hands_pushed" -> String.valueOf(stats.getHandsPushed());
+            case "total_hands" -> String.valueOf(stats.getTotalHands());
+            case "blackjacks" -> String.valueOf(stats.getBlackjacks());
+            case "busts" -> String.valueOf(stats.getBusts());
+            case "current_streak" -> String.valueOf(stats.getCurrentStreak());
+            case "best_streak" -> String.valueOf(stats.getBestStreak());
+            case "win_rate" -> percentFormat.format(stats.getWinRate());
+            case "win_rate_raw" -> decimalFormat.format(stats.getWinRate() / 100);
+            case "total_winnings" -> decimalFormat.format(stats.getTotalWinnings());
+            case "total_winnings_formatted" -> formatMoney(stats.getTotalWinnings());
+            case "has_played" -> stats.getTotalHands() > 0 ? "true" : "false";
             default -> "0";
         };
     }

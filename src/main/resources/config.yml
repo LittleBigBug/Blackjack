@@ -20,6 +20,7 @@ table:
 # Game Rules
 game:
   hit-soft-17: false  # Whether dealer hits on soft 17
+  auto-leave-timeout-seconds: 30  # Time before inactive players are auto-removed when others are waiting
 
 # Card Display Settings (Original working system - minimal config)
 display:

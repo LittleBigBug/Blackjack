@@ -13,7 +13,7 @@ public class BlackjackEngine {
      * @param hand List of cards in the hand
      * @return The best possible value (handling Aces optimally)
      */
-    public static int calculateHandValue(List<Card> hand) {
+    public int calculateHandValue(List<Card> hand) {
         int value = 0;
         int aces = 0;
 
@@ -39,21 +39,21 @@ public class BlackjackEngine {
     /**
      * Check if a hand is a blackjack (21 with exactly 2 cards)
      */
-    public static boolean isBlackjack(List<Card> hand) {
+    public boolean isBlackjack(List<Card> hand) {
         return hand.size() == 2 && calculateHandValue(hand) == 21;
     }
 
     /**
      * Check if a hand is busted (over 21)
      */
-    public static boolean isBusted(List<Card> hand) {
+    public boolean isBusted(List<Card> hand) {
         return calculateHandValue(hand) > 21;
     }
 
     /**
      * Check if dealer should hit (less than 17, or soft 17 depending on rules)
      */
-    public static boolean dealerShouldHit(List<Card> hand, boolean hitSoft17) {
+    public boolean dealerShouldHit(List<Card> hand, boolean hitSoft17) {
         int value = calculateHandValue(hand);
         
         if (value < 17) {
@@ -71,7 +71,7 @@ public class BlackjackEngine {
     /**
      * Check if hand is a soft 17 (Ace + 6, or Ace + 5 + Ace, etc.)
      */
-    private static boolean isSoft17(List<Card> hand) {
+    private boolean isSoft17(List<Card> hand) {
         if (calculateHandValue(hand) != 17) {
             return false;
         }
@@ -95,7 +95,7 @@ public class BlackjackEngine {
     /**
      * Determine game outcome for a player vs dealer
      */
-    public static GameResult determineResult(List<Card> playerHand, List<Card> dealerHand) {
+    public GameResult determineResult(List<Card> playerHand, List<Card> dealerHand) {
         int playerValue = calculateHandValue(playerHand);
         int dealerValue = calculateHandValue(dealerHand);
         

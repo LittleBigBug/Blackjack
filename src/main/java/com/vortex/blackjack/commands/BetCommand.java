@@ -1,6 +1,7 @@
 package com.vortex.blackjack.commands;
 
 import com.vortex.blackjack.BlackjackPlugin;
+import com.vortex.blackjack.util.ChatUtils;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -12,9 +13,11 @@ import java.util.List;
  */
 public class BetCommand extends BlackjackCommand {
     private final BlackjackPlugin plugin;
+    private final ChatUtils chatUtils;
     
     public BetCommand(BlackjackPlugin plugin) {
         this.plugin = plugin;
+        this.chatUtils = new ChatUtils(plugin.getConfigManager());
     }
     
     @Override
@@ -61,6 +64,6 @@ public class BetCommand extends BlackjackCommand {
         player.sendMessage(plugin.getConfigManager().getMessage("quick-bet-description"));
         
         // Use configurable chat betting options
-        com.vortex.blackjack.util.ChatUtils.sendBettingOptions(player, plugin.getConfigManager());
+        chatUtils.sendBettingOptions(player);
     }
 }

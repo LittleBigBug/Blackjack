@@ -9,6 +9,7 @@ import com.vortex.blackjack.model.PlayerStats;
 import com.vortex.blackjack.table.BlackjackTable;
 import com.vortex.blackjack.table.TableManager;
 import com.vortex.blackjack.util.AsyncUtils;
+import com.vortex.blackjack.util.GenericUtils;
 import com.vortex.blackjack.util.VersionChecker;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -291,6 +292,47 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             messagesConfig.set("player-left-during-turn", "&c%player% %reason% during their turn.");
             messagesConfig.set("player-left-table", "&c%player% %reason%.");
             
+            // Game action prompts
+            messagesConfig.set("game-action-prompt", "&7Your turn: ");
+            messagesConfig.set("game-action-separator", "&7 | ");
+            messagesConfig.set("post-game-prompt", "&7Choose: ");
+            
+            // Betting category labels
+            messagesConfig.set("betting-category-small", "&7Small: ");
+            messagesConfig.set("betting-category-medium", "&7Medium: ");
+            messagesConfig.set("betting-category-large", "&7Large: ");
+            
+            // Button configuration
+            messagesConfig.set("buttons.hit.text", "&a&l[HIT]");
+            messagesConfig.set("buttons.hit.command", "/hit");
+            messagesConfig.set("buttons.hit.hover", "&eClick to take another card");
+            
+            messagesConfig.set("buttons.stand.text", "&c&l[STAND]");
+            messagesConfig.set("buttons.stand.command", "/stand");
+            messagesConfig.set("buttons.stand.hover", "&eClick to end your turn");
+            
+            messagesConfig.set("buttons.double-down.text", "&6&l[DOUBLE DOWN]");
+            messagesConfig.set("buttons.double-down.command", "/doubledown");
+            messagesConfig.set("buttons.double-down.hover", "&eClick to double your bet and take one card");
+            
+            messagesConfig.set("buttons.play-again.text", "&a&l[Play Again]");
+            messagesConfig.set("buttons.play-again.command", "/start");
+            messagesConfig.set("buttons.play-again.hover", "&eClick to start a new game");
+            
+            messagesConfig.set("buttons.leave-table.text", "&c&l[Leave Table]");
+            messagesConfig.set("buttons.leave-table.command", "/leave");
+            messagesConfig.set("buttons.leave-table.hover", "&eClick to leave the table");
+            
+            messagesConfig.set("buttons.custom-bet.text", "&b&l[CUSTOM BET]");
+            messagesConfig.set("buttons.custom-bet.command", "/bet ");
+            messagesConfig.set("buttons.custom-bet.hover", "&eClick to enter custom amount");
+            
+            // Button color configurations
+            messagesConfig.set("buttons.small-bet-color", "&a");    // Green for small bets
+            messagesConfig.set("buttons.medium-bet-color", "&e");   // Yellow for medium bets
+            messagesConfig.set("buttons.large-bet-color", "&c");    // Red for large bets
+            messagesConfig.set("buttons.huge-bet-color", "&d");     // Pink for huge bets
+            
             messagesConfig.save(messagesFile);
             
         } catch (IOException e) {
@@ -495,33 +537,18 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     }
     
     private boolean handleHit(Player player) {
-        BlackjackTable table = tableManager.getPlayerTable(player);
-        if (table != null) {
-            table.hit(player);
-        } else {
-            player.sendMessage(configManager.getMessage("not-at-table"));
-        }
-        return true;
+        return GenericUtils.handleTableAction(player, tableManager, configManager, "hit", 
+            table -> table.hit(player));
     }
     
     private boolean handleStand(Player player) {
-        BlackjackTable table = tableManager.getPlayerTable(player);
-        if (table != null) {
-            table.stand(player);
-        } else {
-            player.sendMessage(configManager.getMessage("not-at-table"));
-        }
-        return true;
+        return GenericUtils.handleTableAction(player, tableManager, configManager, "stand", 
+            table -> table.stand(player));
     }
     
     private boolean handleDoubleDown(Player player) {
-        BlackjackTable table = tableManager.getPlayerTable(player);
-        if (table != null) {
-            table.doubleDown(player);
-        } else {
-            player.sendMessage(configManager.getMessage("not-at-table"));
-        }
-        return true;
+        return GenericUtils.handleTableAction(player, tableManager, configManager, "doubledown", 
+            table -> table.doubleDown(player));
     }
     
     private boolean handleBet(Player player, String[] args) {
@@ -535,13 +562,11 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             return true;
         }
         
-        try {
-            int amount = Integer.parseInt(args[1]);
-            return processBet(player, amount);
-        } catch (NumberFormatException e) {
-            player.sendMessage(configManager.getMessage("invalid-amount"));
+        Integer amount = GenericUtils.parseIntegerArgument(args[1], player, configManager, "invalid-amount");
+        if (amount == null) {
             return true;
         }
+        return processBet(player, amount);
     }
     
     private boolean handleStats(Player player, String[] args) {
@@ -590,17 +615,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         
         // Load stats for the target player
         FileConfiguration statsConfig = YamlConfiguration.loadConfiguration(statsFile);
-        PlayerStats stats = new PlayerStats();
-        String path = "players." + targetUUID + ".";
-        
-        stats.setHandsWon(statsConfig.getInt(path + "handsWon", 0));
-        stats.setHandsLost(statsConfig.getInt(path + "handsLost", 0));
-        stats.setHandsPushed(statsConfig.getInt(path + "handsPushed", 0));
-        stats.setCurrentStreak(statsConfig.getInt(path + "currentStreak", 0));
-        stats.setBestStreak(statsConfig.getInt(path + "bestStreak", 0));
-        stats.setTotalWinnings(statsConfig.getDouble(path + "totalWinnings", 0.0));
-        stats.setBlackjacks(statsConfig.getInt(path + "blackjacks", 0));
-        stats.setBusts(statsConfig.getInt(path + "busts", 0));
+        PlayerStats stats = GenericUtils.loadPlayerStats(statsConfig, targetUUID);
         
         if (stats.getTotalHands() == 0) {
             if (targetUUID.equals(player.getUniqueId())) {
@@ -611,21 +626,9 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
             return true;
         }
         
-        String headerMessage = targetUUID.equals(player.getUniqueId()) ? 
-            configManager.getMessage("stats-header") : 
-            configManager.formatMessage("stats-other-player-header", "player", targetName);
-        
-        // Use the new formatted messages from config
-        player.sendMessage(headerMessage);
-        player.sendMessage(configManager.formatMessage("stats-hands-won", "value", stats.getHandsWon()));
-        player.sendMessage(configManager.formatMessage("stats-hands-lost", "value", stats.getHandsLost()));
-        player.sendMessage(configManager.formatMessage("stats-hands-pushed", "value", stats.getHandsPushed()));
-        player.sendMessage(configManager.formatMessage("stats-blackjacks", "value", stats.getBlackjacks()));
-        player.sendMessage(configManager.formatMessage("stats-busts", "value", stats.getBusts()));
-        player.sendMessage(configManager.formatMessage("stats-win-rate", "value", String.format("%.1f", stats.getWinRate())));
-        player.sendMessage(configManager.formatMessage("stats-current-streak", "value", stats.getCurrentStreak()));
-        player.sendMessage(configManager.formatMessage("stats-best-streak", "value", stats.getBestStreak()));
-        player.sendMessage(configManager.formatMessage("stats-total-winnings", "value", String.format("%.2f", stats.getTotalWinnings())));
+        // Use generic stats display method
+        GenericUtils.sendStatsToPlayer(player, stats, configManager, targetName, 
+            targetUUID.equals(player.getUniqueId()));
         
         return true;
     }
@@ -743,17 +746,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         FileConfiguration statsConfig = YamlConfiguration.loadConfiguration(statsFile);
         
         for (Map.Entry<UUID, PlayerStats> entry : playerStats.entrySet()) {
-            String path = "players." + entry.getKey() + ".";
-            PlayerStats stats = entry.getValue();
-            
-            statsConfig.set(path + "handsWon", stats.getHandsWon());
-            statsConfig.set(path + "handsLost", stats.getHandsLost());
-            statsConfig.set(path + "handsPushed", stats.getHandsPushed());
-            statsConfig.set(path + "currentStreak", stats.getCurrentStreak());
-            statsConfig.set(path + "bestStreak", stats.getBestStreak());
-            statsConfig.set(path + "totalWinnings", stats.getTotalWinnings());
-            statsConfig.set(path + "blackjacks", stats.getBlackjacks());
-            statsConfig.set(path + "busts", stats.getBusts());
+            GenericUtils.savePlayerStats(statsConfig, entry.getKey(), entry.getValue());
         }
         
         try {

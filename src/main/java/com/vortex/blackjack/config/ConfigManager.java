@@ -83,6 +83,11 @@ public class ConfigManager {
     public boolean areParticlesEnabled() { return particlesEnabled; }
     public boolean shouldHitSoft17() { return hitSoft17; }
     
+    // Auto-leave settings
+    public int getAutoLeaveTimeoutSeconds() {
+        return Math.max(10, config.getInt("game.auto-leave-timeout-seconds", 30));
+    }
+    
     // Quick bet settings
     public java.util.List<Integer> getSmallBets() {
         return config.getIntegerList("betting.quick-bets.small");

@@ -16,6 +16,7 @@ import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
@@ -36,6 +37,8 @@ public class BlackjackTable {
     private final BlackjackPlugin plugin;
     private final TableManager tableManager;
     private final ConfigManager configManager;
+    private final ChatUtils chatUtils;
+    private final BlackjackEngine gameEngine;
     private final Location centerLoc;
     
     // Game state
@@ -54,10 +57,16 @@ public class BlackjackTable {
     private final Map<Player, List<ItemDisplay>> playerDealerDisplays = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastMessageTime = new HashMap<>();
     
+    // Auto-leave tracking
+    private final Map<Player, Long> gameEndTimes = new ConcurrentHashMap<>();
+    private BukkitTask autoLeaveTask;
+    
     public BlackjackTable(BlackjackPlugin plugin, TableManager tableManager, ConfigManager configManager, Location centerLoc) {
         this.plugin = plugin;
         this.tableManager = tableManager;
         this.configManager = configManager;
+        this.chatUtils = new ChatUtils(configManager);
+        this.gameEngine = new BlackjackEngine();
         this.centerLoc = centerLoc;
     }
     
@@ -132,7 +141,7 @@ public class BlackjackTable {
                 
                 // Show betting options if UX features enabled
                 if (configManager.areParticlesEnabled()) { // Using as UX enabled check
-                    ChatUtils.sendBettingOptions(player, configManager);
+                    chatUtils.sendBettingOptions(player);
                 }
                 
                 return true;
@@ -299,7 +308,7 @@ public class BlackjackTable {
             broadcastTableMessage(configManager.formatMessage("game-started", "player", currentPlayer.getName()));
             
             // Send interactive turn message (doubledown available on first turn)
-            ChatUtils.sendGameActionBar(currentPlayer, configManager, true);
+            chatUtils.sendGameActionBar(currentPlayer, true);
         }
     }
     
@@ -319,10 +328,10 @@ public class BlackjackTable {
             playCardSound(player.getLocation());
             updateCardDisplays(player, hand);
             
-            int value = BlackjackEngine.calculateHandValue(hand);
+            int value = gameEngine.calculateHandValue(hand);
             // Don't send individual hand value - it's already shown in updateCardDisplays
             
-            if (BlackjackEngine.isBusted(hand)) {
+            if (gameEngine.isBusted(hand)) {
                 finishedPlayers.add(player);
                 broadcastTableMessage(configManager.formatMessage("player-busts", "player", player.getName()));
                 playLoseSound(player);
@@ -334,7 +343,7 @@ public class BlackjackTable {
                 nextTurn();
             } else {
                 // Send action buttons again (no doubledown after hitting)
-                ChatUtils.sendGameActionBar(player, configManager, false);
+                chatUtils.sendGameActionBar(player, false);
             }
         }
     }
@@ -349,7 +358,7 @@ public class BlackjackTable {
             }
             
             finishedPlayers.add(player);
-            int value = BlackjackEngine.calculateHandValue(playerHands.get(player));
+            int value = gameEngine.calculateHandValue(playerHands.get(player));
             broadcastTableMessage(configManager.formatMessage("player-stands", 
                 "player", player.getName(), 
                 "value", formatHandValue(value)));
@@ -404,7 +413,7 @@ public class BlackjackTable {
             playCardSound(player.getLocation());
             updateCardDisplays(player, hand);
             
-            int value = BlackjackEngine.calculateHandValue(hand);
+            int value = gameEngine.calculateHandValue(hand);
             broadcastTableMessage(configManager.formatMessage("player-doubles-down", 
                 "player", player.getName(), 
                 "value", formatHandValue(value)));
@@ -412,7 +421,7 @@ public class BlackjackTable {
             // Player is automatically done after double down
             finishedPlayers.add(player);
             
-            if (BlackjackEngine.isBusted(hand)) {
+            if (gameEngine.isBusted(hand)) {
                 broadcastTableMessage(configManager.formatMessage("player-busts", "player", player.getName()));
                 playLoseSound(player);
             } else if (value == 21) {
@@ -450,7 +459,7 @@ public class BlackjackTable {
             // Show doubledown only if player has exactly 2 cards and hasn't doubled down yet
             List<Card> hand = playerHands.get(currentPlayer);
             boolean canDoubleDown = hand != null && hand.size() == 2 && !doubleDownPlayers.contains(currentPlayer);
-            ChatUtils.sendGameActionBar(currentPlayer, configManager, canDoubleDown);
+            chatUtils.sendGameActionBar(currentPlayer, canDoubleDown);
         } else {
             endGame();
         }
@@ -462,10 +471,10 @@ public class BlackjackTable {
             
             // Dealer logic
             boolean anyValidPlayers = players.stream()
-                .anyMatch(p -> !BlackjackEngine.isBusted(playerHands.get(p)));
+                .anyMatch(p -> !gameEngine.isBusted(playerHands.get(p)));
             
             if (anyValidPlayers) {
-                while (BlackjackEngine.dealerShouldHit(dealerHand, configManager.shouldHitSoft17())) {
+                while (gameEngine.dealerShouldHit(dealerHand, configManager.shouldHitSoft17())) {
                     dealerHand.add(deck.drawCard());
                 }
             }
@@ -475,7 +484,7 @@ public class BlackjackTable {
             
             // Update dealer displays and show final hand with cards and value
             updateDealerDisplays();
-            int dealerValue = BlackjackEngine.calculateHandValue(dealerHand);
+            int dealerValue = gameEngine.calculateHandValue(dealerHand);
             String dealerHandDisplay = formatHand(dealerHand);
             String dealerValueDisplay = formatHandValue(dealerValue);
             broadcastTableMessage("Dealer: " + dealerHandDisplay + " | " + dealerValueDisplay);
@@ -497,6 +506,7 @@ public class BlackjackTable {
                 if (!players.isEmpty()) {
                     broadcastTableMessage(configManager.getMessage("game-ended"));
                     sendGameEndButtons();
+                    startAutoLeaveTimer();
                 }
             }, 20L); // 1 second delay
         }
@@ -513,7 +523,7 @@ public class BlackjackTable {
     
     private void handlePayout(Player player, int dealerValue) {
         List<Card> playerHand = playerHands.get(player);
-        BlackjackEngine.GameResult result = BlackjackEngine.determineResult(playerHand, dealerHand);
+        BlackjackEngine.GameResult result = gameEngine.determineResult(playerHand, dealerHand);
         
         // Get the player's bet amount
         Integer betAmount = plugin.getPlayerBets().get(player);
@@ -585,7 +595,7 @@ public class BlackjackTable {
             
             // Check for blackjack
             List<Card> playerHand = playerHands.get(player);
-            if (playerHand.size() == 2 && BlackjackEngine.calculateHandValue(playerHand) == 21) {
+            if (playerHand.size() == 2 && gameEngine.calculateHandValue(playerHand) == 21) {
                 stats.incrementBlackjacks();
             }
         } else {
@@ -595,7 +605,7 @@ public class BlackjackTable {
             
             // Check for bust
             List<Card> playerHand = playerHands.get(player);
-            if (BlackjackEngine.calculateHandValue(playerHand) > 21) {
+            if (gameEngine.calculateHandValue(playerHand) > 21) {
                 stats.incrementBusts();
             }
         }
@@ -872,7 +882,7 @@ public class BlackjackTable {
             playerCardDisplays.get(player).add(display);
         }
 
-        int handValue = BlackjackEngine.calculateHandValue(hand);
+        int handValue = gameEngine.calculateHandValue(hand);
         // Send colorized hand info - more compact and readable
         player.sendMessage(configManager.formatMessage("hand-display", 
             "hand", formatHand(hand), 
@@ -1001,7 +1011,7 @@ public class BlackjackTable {
     public boolean hasPlayerHand(Player player) { return playerHands.containsKey(player); }
     public int getPlayerHandValue(Player player) { 
         List<Card> hand = playerHands.get(player);
-        return hand != null ? BlackjackEngine.calculateHandValue(hand) : 0;
+        return hand != null ? gameEngine.calculateHandValue(hand) : 0;
     }
     public int getPlayerHandSize(Player player) {
         List<Card> hand = playerHands.get(player);
@@ -1012,11 +1022,11 @@ public class BlackjackTable {
     public boolean isPlayerFinished(Player player) { return finishedPlayers.contains(player); }
     public boolean hasPlayerBlackjack(Player player) {
         List<Card> hand = playerHands.get(player);
-        return hand != null && hand.size() == 2 && BlackjackEngine.calculateHandValue(hand) == 21;
+        return hand != null && hand.size() == 2 && gameEngine.calculateHandValue(hand) == 21;
     }
     public boolean isPlayerBusted(Player player) {
         List<Card> hand = playerHands.get(player);
-        return hand != null && BlackjackEngine.calculateHandValue(hand) > 21;
+        return hand != null && gameEngine.calculateHandValue(hand) > 21;
     }
     public boolean canPlayerDoubleDown(Player player) {
         List<Card> hand = playerHands.get(player);
@@ -1030,15 +1040,15 @@ public class BlackjackTable {
         if (gameInProgress && dealerHand.size() >= 2) {
             List<Card> visibleCards = new ArrayList<>();
             visibleCards.add(dealerHand.get(0));
-            return BlackjackEngine.calculateHandValue(visibleCards);
+            return gameEngine.calculateHandValue(visibleCards);
         }
-        return BlackjackEngine.calculateHandValue(dealerHand);
+        return gameEngine.calculateHandValue(dealerHand);
     }
     public int getDealerCardCount() { return dealerHand.size(); }
     
     private void sendGameEndButtons() {
         for (Player player : players) {
-            com.vortex.blackjack.util.ChatUtils.sendGameEndOptions(player);
+            chatUtils.sendGameEndOptions(player);
         }
     }
 
@@ -1056,5 +1066,70 @@ public class BlackjackTable {
             }
         }
         return true;
+    }
+    
+    private void startAutoLeaveTimer() {
+        // Cancel any existing auto-leave task
+        if (autoLeaveTask != null) {
+            autoLeaveTask.cancel();
+        }
+        
+        // Record the game end time for all players
+        long gameEndTime = System.currentTimeMillis();
+        for (Player player : players) {
+            gameEndTimes.put(player, gameEndTime);
+        }
+        
+        // Start the auto-leave checker task
+        autoLeaveTask = Bukkit.getScheduler().runTaskTimer(plugin, this::checkAutoLeave, 20L * 5L, 20L * 5L); // Check every 5 seconds
+    }
+    
+    private void checkAutoLeave() {
+        if (gameInProgress || players.size() <= 1) {
+            // Cancel auto-leave if game is in progress or only 1 player left
+            if (autoLeaveTask != null) {
+                autoLeaveTask.cancel();
+                autoLeaveTask = null;
+            }
+            gameEndTimes.clear();
+            return;
+        }
+        
+        long currentTime = System.currentTimeMillis();
+        int timeoutMs = configManager.getAutoLeaveTimeoutSeconds() * 1000;
+        
+        List<Player> playersToRemove = new ArrayList<>();
+        for (Player player : new ArrayList<>(players)) {
+            Long gameEndTime = gameEndTimes.get(player);
+            if (gameEndTime != null && (currentTime - gameEndTime) >= timeoutMs) {
+                playersToRemove.add(player);
+            }
+        }
+        
+        // Remove inactive players
+        for (Player player : playersToRemove) {
+            if (player.isOnline()) {
+                player.sendMessage(configManager.getMessage("auto-left-inactive"));
+            }
+            removePlayer(player, "was removed due to inactivity");
+            gameEndTimes.remove(player);
+        }
+        
+        // Cancel auto-leave task if no more players or only 1 left
+        if (players.size() <= 1) {
+            if (autoLeaveTask != null) {
+                autoLeaveTask.cancel();
+                autoLeaveTask = null;
+            }
+            gameEndTimes.clear();
+        }
+    }
+    
+    public void cancelAutoLeaveTimer() {
+        if (autoLeaveTask != null) {
+            autoLeaveTask.cancel();
+            autoLeaveTask = null;
+        }
+        gameEndTimes.clear();
     }
 }
