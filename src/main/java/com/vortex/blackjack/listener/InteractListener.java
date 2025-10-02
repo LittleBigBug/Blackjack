@@ -24,9 +24,7 @@ public class InteractListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInteract(PlayerInteractEntityEvent event) {
-        Bukkit.getLogger().info("Interact event");
         Entity ent = event.getRightClicked();
-        Bukkit.getLogger().info(ent.getType().toString());
 
         if (!(ent instanceof Interaction interaction)) return;
 
@@ -41,7 +39,6 @@ public class InteractListener implements Listener {
                 break;
             }
 
-        Bukkit.getLogger().info("Table: " + table);
         if (table == null) return;
 
         Player ply = event.getPlayer();

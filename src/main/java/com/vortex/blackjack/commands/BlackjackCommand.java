@@ -1,8 +1,7 @@
 package com.vortex.blackjack.commands;
 
 import com.vortex.blackjack.BlackjackPlugin;
-import com.vortex.blackjack.commands.sub.Bet;
-import com.vortex.blackjack.commands.sub.SubCommand;
+import com.vortex.blackjack.commands.sub.*;
 import com.vortex.blackjack.config.ConfigManager;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -19,8 +18,19 @@ public class BlackjackCommand extends BaseCommand {
         super(plugin);
 
         SubCommand[] subCommands = new SubCommand[] {
-                new Bet(plugin)
+                new Bet(plugin),
+                new CreateTable(plugin),
+                new DoubleDown(plugin),
+                new Hit(plugin),
+                new Join(plugin),
+                new Leave(plugin),
+                new Reload(plugin),
+                new RemoveTable(plugin),
+                new Stand(plugin),
+                new Start(plugin),
+                new Stats(plugin),
         };
+
         this.registerSubCommands(subCommands);
     }
 

@@ -1,5 +1,8 @@
 package com.vortex.blackjack;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.PacketEventsAPI;
+import com.github.retrooper.packetevents.event.EventManager;
 import com.vortex.blackjack.commands.BlackjackCommand;
 import com.vortex.blackjack.config.ConfigManager;
 import com.vortex.blackjack.economy.EconomyProvider;
@@ -8,6 +11,7 @@ import com.vortex.blackjack.integration.BlackjackPlaceholderExpansion;
 import com.vortex.blackjack.listener.ChatListener;
 import com.vortex.blackjack.listener.InteractListener;
 import com.vortex.blackjack.listener.PlayerListener;
+import com.vortex.blackjack.listener.SteerVehicleListener;
 import com.vortex.blackjack.model.PlayerStats;
 import com.vortex.blackjack.table.BetManager;
 import com.vortex.blackjack.table.TableManager;
@@ -15,6 +19,8 @@ import com.vortex.blackjack.util.AsyncUtils;
 import com.vortex.blackjack.util.ChatUtils;
 import com.vortex.blackjack.util.GenericUtils;
 import com.vortex.blackjack.util.VersionChecker;
+import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
+import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -53,7 +59,13 @@ public class BlackjackPlugin extends JavaPlugin  {
     
     // Files
     private File statsFile;
-    
+
+    @Override
+    public void onLoad() {
+        PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this));
+        PacketEvents.getAPI().load();
+    }
+
     @Override
     public void onEnable() {
         // Initialize configuration
@@ -90,7 +102,7 @@ public class BlackjackPlugin extends JavaPlugin  {
 
         // Initialize economy provider - Vault with EssentialsX fallback
         economyProvider = initializeEconomyProvider();
-        
+
         if (economyProvider == null) {
             getLogger().severe("No supported economy plugin found! Please install Vault with an economy plugin (like EssentialsX, EconomyAPI, CMI, HexaEcon, etc.)");
             getLogger().severe("Disabling Blackjack...");
@@ -117,8 +129,16 @@ public class BlackjackPlugin extends JavaPlugin  {
         
         // Initialize files
         statsFile = new File(getDataFolder(), "stats.yml");
-        
-        // Register events
+
+        // Register protocol events
+        PacketEventsAPI<?> packetApi = PacketEvents.getAPI();
+        packetApi.init();
+
+        EventManager eventManager = packetApi.getEventManager();
+
+        eventManager.registerListener(new SteerVehicleListener(this));
+
+        // Register Bukkit events
         getServer().getPluginManager().registerEvents(new ChatListener(this), this);
         getServer().getPluginManager().registerEvents(new InteractListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
@@ -159,6 +179,8 @@ public class BlackjackPlugin extends JavaPlugin  {
             this.tableManager.cleanup();
         }
 
+        PacketEvents.getAPI().terminate();
+
         // Save player stats
         savePlayerStats();
 
@@ -170,10 +192,9 @@ public class BlackjackPlugin extends JavaPlugin  {
      */
     private void createDefaultMessagesFile(File messagesFile) {
         try {
-            if (!messagesFile.getParentFile().exists()) {
+            if (!messagesFile.getParentFile().exists())
                 messagesFile.getParentFile().mkdirs();
-            }
-            
+
             FileConfiguration messagesConfig = new YamlConfiguration();
             
             // Add all the default messages
@@ -341,6 +362,8 @@ public class BlackjackPlugin extends JavaPlugin  {
      * Initialize economy provider
      */
     private EconomyProvider initializeEconomyProvider() {
+        if (Bukkit.getServer().getPluginManager().getPlugin("Vault") == null) return null;
+
         VaultEconomyProvider provider = new VaultEconomyProvider(this);
         
         if (provider.isEnabled()) {

@@ -32,4 +32,5 @@ public interface EconomyProvider {
      * Get the name of the economy provider
      */
     String getProviderName();
+
 }

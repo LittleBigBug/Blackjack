@@ -3,7 +3,7 @@ version: 2.4.0
 main: com.vortex.blackjack.BlackjackPlugin
 description: A physical blackjack table game for Minecraft
 api-version: 1.21
-depend: [Vault]
+depend: [Vault, packetevents]
 softdepend: [GSit, PlaceholderAPI]
 loadbefore: []
 load: POSTWORLD

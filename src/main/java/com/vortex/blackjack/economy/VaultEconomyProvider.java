@@ -28,14 +28,9 @@ public class VaultEconomyProvider implements EconomyProvider {
     }
     
     private boolean setupEconomy() {
-        if (Bukkit.getServer().getPluginManager().getPlugin("Vault") == null) {
-            return false;
-        }
-        
         RegisteredServiceProvider<Economy> rsp = Bukkit.getServer().getServicesManager().getRegistration(Economy.class);
-        if (rsp == null) {
-            return false;
-        }
+
+        if (rsp == null) return false;
         
         economy = rsp.getProvider();
         enabled = (economy != null);

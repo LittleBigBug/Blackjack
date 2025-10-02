@@ -6,12 +6,7 @@ import com.vortex.blackjack.game.BlackjackEngine;
 import com.vortex.blackjack.model.Card;
 import com.vortex.blackjack.model.Deck;
 import com.vortex.blackjack.util.ChatUtils;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -45,6 +40,7 @@ public class BlackjackTable {
 
     // Display entities
     private ItemDisplay tableDisplay;
+    private final Map<Integer, ArmorStand> seatEntities = new ConcurrentHashMap<>();
     private final Map<Integer, ItemDisplay> seatDisplays = new ConcurrentHashMap<>();
     private final Map<Player, List<ItemDisplay>> playerCardDisplays = new ConcurrentHashMap<>();
     private final Map<Player, List<ItemDisplay>> playerDealerDisplays = new ConcurrentHashMap<>();
@@ -113,36 +109,17 @@ public class BlackjackTable {
                 playerCardDisplays.put(player, new ArrayList<>());
                 playerDealerDisplays.put(player, new ArrayList<>());
                 tableManager.setPlayerTable(player, this);
-                
+
                 // Teleport to seat
-                Location seatLoc = getSeatLocation(seatNumber);
-                if (seatLoc != null) {
-                    player.teleport(seatLoc);
-                    
-                    // Rotate player 90 degrees to the right before sitting
-                    Location currentLoc = player.getLocation();
-                    float newYaw = currentLoc.getYaw() + 90f;
-                    currentLoc.setYaw(newYaw);
-                    player.teleport(currentLoc);
-                    
-                    // GSit integration - make player sit down if GSit is available
-                    if (plugin.isGSitEnabled()) {
-                        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                            if (player.isOnline() && players.contains(player)) {
-                                // Use GSit's sit command
-                                player.performCommand("sit");
-                            }
-                        }, 5L); // 0.25 second delay to allow teleport to complete
-                    }
-                }
-                
+                ArmorStand seatEnt = seatEntities.get(seatNumber);
+                if (seatEnt != null) seatEnt.addPassenger(player);
+
                 broadcastTableMessage(configManager.formatMessage("player-joined-table", "player", player.getName()));
-                
+
                 // Show betting options if UX features enabled
-                if (configManager.areParticlesEnabled()) { // Using as UX enabled check
+                if (configManager.areParticlesEnabled()) // Using as UX enabled check
                     chatUtils.sendBettingOptions(player);
-                }
-                
+
                 return true;
             } catch (Exception e) {
                 // Cleanup on error
@@ -175,13 +152,19 @@ public class BlackjackTable {
         TableManager tableManager = plugin.getTableManager();
         ConfigManager configManager = plugin.getConfigManager();
 
+        // todo; if a player wants to leave during their hand they can surrender half their bet
         synchronized (this) {
             if (!players.contains(player)) return;
 
             // Check if player has a bet that needs to be refunded
             boolean shouldRefundBet = gameInProgress && configManager.shouldRefundOnLeave();
             Integer betAmount = betManager.getPlayerBets().get(player);
-            
+
+            ArmorStand seatEnt = this.seatEntities.get(playerSeats.get(player));
+
+            if (seatEnt.getPassengers().contains(player))
+                seatEnt.removePassenger(player);
+
             // Cleanup player data
             players.remove(player);
             playerSeats.remove(player);
@@ -941,10 +924,31 @@ public class BlackjackTable {
         });
     }
 
+    private ArmorStand createSeatEntity(int seatNumber) {
+        Location seatLocation = this.getSeatLocation(seatNumber);
+        if (seatLocation == null) return null;
+
+        World world = seatLocation.getWorld();
+        if (world == null) return null;
+
+        Location loc = seatLocation.clone().add(0.0, -1.1f, 0.0);
+
+        return world.spawn(loc, ArmorStand.class, e -> {
+            e.setSilent(true);
+            e.setGravity(false);
+            e.setPersistent(false);
+            e.setInvulnerable(true);
+            e.setTicksLived(Integer.MAX_VALUE);
+            e.setInvisible(true);
+        });
+    }
+
     public void createTableModels() {
         this.tableDisplay = this.createTableDisplay();
-        for (int i = 0; i < this.plugin.getConfigManager().getMaxPlayers(); i++)
+        for (int i = 0; i < this.plugin.getConfigManager().getMaxPlayers(); i++) {
+            this.seatEntities.put(i, this.createSeatEntity(i));
             this.seatDisplays.put(i, this.createSeatDisplay(i));
+        }
         this.interactionEntity = this.createTableInteraction();
     }
 
@@ -1087,6 +1091,9 @@ public class BlackjackTable {
         for (ItemDisplay seat : seatDisplays.values()) seat.remove();
         seatDisplays.clear();
 
+        for (ArmorStand seat : seatEntities.values()) seat.remove();
+        seatEntities.clear();
+
         if (this.interactionEntity != null) this.interactionEntity.remove();
         interactionEntity = null;
     }
@@ -1097,6 +1104,7 @@ public class BlackjackTable {
     public void cleanup() {
         this.cleanTableDisplay();
         this.clearAllCardDisplays();
+
         players.clear();
         playerHands.clear();
         playerSeats.clear();
