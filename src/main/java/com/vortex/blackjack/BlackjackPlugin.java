@@ -44,9 +44,6 @@ public class BlackjackPlugin extends JavaPlugin  {
     private AsyncUtils asyncUtils;
     private EconomyProvider economyProvider;
     private BetManager betManager;
-
-    // GSit integration
-    private boolean gSitEnabled = false;
     
     // PlaceholderAPI integration
     private BlackjackPlaceholderExpansion placeholderExpansion;
@@ -105,14 +102,6 @@ public class BlackjackPlugin extends JavaPlugin  {
             getLogger().severe("Disabling Blackjack...");
             getServer().getPluginManager().disablePlugin(this);
             return;
-        }
-        
-        // Check for GSit integration
-        if (getServer().getPluginManager().getPlugin("GSit") != null) {
-            gSitEnabled = true;
-            getLogger().info("GSit found! Players will automatically sit when joining tables.");
-        } else {
-            getLogger().info("GSit not found. Players will not automatically sit when joining tables.");
         }
         
         // Check for PlaceholderAPI integration
@@ -246,7 +235,6 @@ public class BlackjackPlugin extends JavaPlugin  {
     // Player data getters
     public Map<UUID, PlayerStats> getPlayerStats() { return playerStats; }
     public File getStatsFile() { return statsFile; }
-    public boolean isGSitEnabled() { return gSitEnabled; }
     
     public VersionChecker getVersionChecker() { return versionChecker; }
 }

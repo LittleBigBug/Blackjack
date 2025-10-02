@@ -192,8 +192,6 @@ post-game-prompt: "&7Choose: "
 # Console and system messages
 console-economy-provider-not-found: "No supported economy plugin found! Please install Vault with an economy plugin."
 console-economy-provider-loaded: "Economy provider loaded: %provider%"
-console-gsit-found: "GSit found! Players will automatically sit when joining tables."
-console-gsit-not-found: "GSit not found. Players will not automatically sit when joining tables."
 console-placeholderapi-found: "PlaceholderAPI found! Extensive placeholder support enabled."
 console-placeholderapi-not-found: "PlaceholderAPI not found. Placeholder support disabled."
 console-stats-autosave-scheduled: "Stats auto-save scheduled every %interval% seconds"
