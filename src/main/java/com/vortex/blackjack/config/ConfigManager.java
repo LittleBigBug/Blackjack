@@ -1,5 +1,6 @@
 package com.vortex.blackjack.config;
 
+import com.vortex.blackjack.BlackjackPlugin;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -12,8 +13,8 @@ import org.bukkit.configuration.file.FileConfiguration;
  * Centralized configuration management with validation and caching
  */
 public class ConfigManager {
-    private FileConfiguration config;
-    private FileConfiguration messagesConfig;
+
+    private final BlackjackPlugin plugin;
     
     // Cached values for performance
     private int minBet;
@@ -27,20 +28,14 @@ public class ConfigManager {
     private boolean particlesEnabled;
     private boolean hitSoft17;
     
-    public ConfigManager(FileConfiguration config, FileConfiguration messagesConfig) {
-        this.config = config;
-        this.messagesConfig = messagesConfig;
-        loadAndValidateConfig();
-    }
-    
-    // Backward compatibility constructor
-    public ConfigManager(FileConfiguration config) {
-        this.config = config;
-        this.messagesConfig = config; // Use main config for messages if no separate messages config
+    public ConfigManager(BlackjackPlugin plugin) {
+        this.plugin = plugin;
         loadAndValidateConfig();
     }
     
     private void loadAndValidateConfig() {
+        FileConfiguration config = this.plugin.getConfig();
+
         // Betting settings
         minBet = Math.max(1, config.getInt("betting.min-bet", 10));
         maxBet = Math.max(minBet, config.getInt("betting.max-bet", 10000));
@@ -85,37 +80,37 @@ public class ConfigManager {
     
     // Auto-leave settings
     public int getAutoLeaveTimeoutSeconds() {
-        return Math.max(10, config.getInt("game.auto-leave-timeout-seconds", 30));
+        return Math.max(10, this.plugin.getConfig().getInt("game.auto-leave-timeout-seconds", 30));
     }
     
     // Quick bet settings
     public java.util.List<Integer> getSmallBets() {
-        return config.getIntegerList("betting.quick-bets.small");
+        return this.plugin.getConfig().getIntegerList("betting.quick-bets.small");
     }
     
     public java.util.List<Integer> getMediumBets() {
-        return config.getIntegerList("betting.quick-bets.medium");
+        return this.plugin.getConfig().getIntegerList("betting.quick-bets.medium");
     }
     
     public java.util.List<Integer> getLargeBets() {
-        return config.getIntegerList("betting.quick-bets.large");
+        return this.plugin.getConfig().getIntegerList("betting.quick-bets.large");
     }
     
     // Display settings
     public float getCardScale() {
-        return (float) config.getDouble("display.card.scale", 0.35);
+        return (float) this.plugin.getConfig().getDouble("display.card.scale", 0.35);
     }
     
     public double getCardSpacing() {
-        return config.getDouble("display.card.spacing", 0.25);
+        return this.plugin.getConfig().getDouble("display.card.spacing", 0.25);
     }
     
     public double getPlayerCardHeight() {
-        return config.getDouble("display.card.player.height", 1.05);
+        return this.plugin.getConfig().getDouble("display.card.player.height", 1.05);
     }
     
     public double getDealerCardHeight() {
-        return config.getDouble("display.card.dealer.height", 1.2);
+        return this.plugin.getConfig().getDouble("display.card.dealer.height", 1.2);
     }
     
     /**
@@ -148,37 +143,37 @@ public class ConfigManager {
     
     // Sound configuration
     public Sound getCardDealSound() {
-        String soundName = config.getString("sounds.card-deal.sound", "BLOCK_WOODEN_BUTTON_CLICK_ON");
+        String soundName = this.plugin.getConfig().getString("sounds.card-deal.sound", "BLOCK_WOODEN_BUTTON_CLICK_ON");
         return getSoundFromString(soundName, Sound.BLOCK_WOODEN_BUTTON_CLICK_ON);
     }
     
     public float getCardDealVolume() {
-        return (float) config.getDouble("sounds.card-deal.volume", 1.0);
+        return (float) this.plugin.getConfig().getDouble("sounds.card-deal.volume", 1.0);
     }
     
     public float getCardDealPitch() {
-        return (float) config.getDouble("sounds.card-deal.pitch", 1.2);
+        return (float) this.plugin.getConfig().getDouble("sounds.card-deal.pitch", 1.2);
     }
     
     public Sound getWinSound() {
-        String soundName = config.getString("sounds.win.sound", "ENTITY_PLAYER_LEVELUP");
+        String soundName = this.plugin.getConfig().getString("sounds.win.sound", "ENTITY_PLAYER_LEVELUP");
         return getSoundFromString(soundName, Sound.ENTITY_PLAYER_LEVELUP);
     }
     
     public Sound getLoseSound() {
-        String soundName = config.getString("sounds.lose.sound", "ENTITY_VILLAGER_NO");
+        String soundName = this.plugin.getConfig().getString("sounds.lose.sound", "ENTITY_VILLAGER_NO");
         return getSoundFromString(soundName, Sound.ENTITY_VILLAGER_NO);
     }
     
     public Sound getPushSound() {
-        String soundName = config.getString("sounds.push.sound", "BLOCK_NOTE_BLOCK_PLING");
+        String soundName = this.plugin.getConfig().getString("sounds.push.sound", "BLOCK_NOTE_BLOCK_PLING");
         return getSoundFromString(soundName, Sound.BLOCK_NOTE_BLOCK_PLING);
     }
     
     // Particle configuration
     public Particle getWinParticle() {
         try {
-            return Particle.valueOf(config.getString("particles.win.type", "HAPPY_VILLAGER"));
+            return Particle.valueOf(this.plugin.getConfig().getString("particles.win.type", "HAPPY_VILLAGER"));
         } catch (IllegalArgumentException e) {
             return Particle.HAPPY_VILLAGER;
         }
@@ -186,7 +181,7 @@ public class ConfigManager {
     
     public Particle getLoseParticle() {
         try {
-            return Particle.valueOf(config.getString("particles.lose.type", "ANGRY_VILLAGER"));
+            return Particle.valueOf(this.plugin.getConfig().getString("particles.lose.type", "ANGRY_VILLAGER"));
         } catch (IllegalArgumentException e) {
             return Particle.ANGRY_VILLAGER;
         }
@@ -194,17 +189,14 @@ public class ConfigManager {
     
     // Message handling
     public String getMessage(String path) {
+        FileConfiguration messagesConfig = this.plugin.getMessagesConfig();
         String message;
+
         // Try messages config first, then fall back to main config with "messages." prefix
-        if (messagesConfig.contains(path)) {
-            message = messagesConfig.getString(path);
-        } else {
-            message = config.getString("messages." + path);
-        }
+        if (messagesConfig.contains(path)) message = messagesConfig.getString(path);
+        else message = this.plugin.getConfig().getString("messages." + path);
         
-        if (message == null) {
-            message = "&cMessage not found: " + path;
-        }
+        if (message == null) message = "&cMessage not found: " + path;
         
         return ChatColor.translateAlternateColorCodes('&', message);
     }
@@ -219,80 +211,71 @@ public class ConfigManager {
         return message;
     }
 
-    public void reload(FileConfiguration newConfig, FileConfiguration newMessagesConfig) {
-        if (newConfig != null) {
-            this.config = newConfig;
-        }
-        if (newMessagesConfig != null) {
-            this.messagesConfig = newMessagesConfig;
-        }
+    public void reload() {
         loadAndValidateConfig();
-    }
-    
-    // Backward compatibility reload method
-    public void reload(FileConfiguration newConfig) {
-        reload(newConfig, newConfig);
     }
     
     // Performance settings
     public int getStatsSaveInterval() {
-        return config.getInt("performance.stats-save-interval", 3);
+        return this.plugin.getConfig().getInt("performance.stats-save-interval", 3);
     }
     
     // Game settings
     public boolean shouldRefundOnLeave() {
-        return config.getBoolean("game-settings.refund-on-leave", true);
+        return this.plugin.getConfig().getBoolean("game-settings.refund-on-leave", true);
     }
     
     // Button configuration methods
     public String getButtonText(String buttonName) {
-        return ChatColor.translateAlternateColorCodes('&', 
-            messagesConfig.getString("buttons." + buttonName + ".text", "&7[" + buttonName.toUpperCase() + "]"));
+        return ChatColor.translateAlternateColorCodes('&',
+                this.plugin.getMessagesConfig().getString("buttons." + buttonName + ".text", "&7[" + buttonName.toUpperCase() + "]"));
     }
     
     public String getButtonCommand(String buttonName) {
-        return messagesConfig.getString("buttons." + buttonName + ".command", "/" + buttonName);
+        return this.plugin.getMessagesConfig().getString("buttons." + buttonName + ".command", "/" + buttonName);
     }
     
     public String getButtonHover(String buttonName) {
-        return ChatColor.translateAlternateColorCodes('&', 
-            messagesConfig.getString("buttons." + buttonName + ".hover", "Click to " + buttonName));
+        return ChatColor.translateAlternateColorCodes('&',
+                this.plugin.getMessagesConfig().getString("buttons." + buttonName + ".hover", "Click to " + buttonName));
     }
     
     public String getBetColorByAmount(int amount) {
-        if (amount >= 5000) {
+        FileConfiguration messagesConfig = this.plugin.getMessagesConfig();
+
+        if (amount >= 5000)
             return ChatColor.translateAlternateColorCodes('&', messagesConfig.getString("buttons.huge-bet-color", "&d"));
-        } else if (amount >= 1000) {
+        else if (amount >= 1000)
             return ChatColor.translateAlternateColorCodes('&', messagesConfig.getString("buttons.large-bet-color", "&c"));
-        } else if (amount >= 100) {
+        else if (amount >= 100)
             return ChatColor.translateAlternateColorCodes('&', messagesConfig.getString("buttons.medium-bet-color", "&e"));
-        } else {
+        else
             return ChatColor.translateAlternateColorCodes('&', messagesConfig.getString("buttons.small-bet-color", "&a"));
-        }
     }
     
     public String getGameActionPrompt() {
-        return ChatColor.translateAlternateColorCodes('&', 
-            messagesConfig.getString("game-action-prompt", "&7Your turn: "));
+        return ChatColor.translateAlternateColorCodes('&',
+                this.plugin.getMessagesConfig().getString("game-action-prompt", "&7Your turn: "));
     }
     
     public String getGameActionSeparator() {
-        return ChatColor.translateAlternateColorCodes('&', 
-            messagesConfig.getString("game-action-separator", "&7 | "));
+        return ChatColor.translateAlternateColorCodes('&',
+                this.plugin.getMessagesConfig().getString("game-action-separator", "&7 | "));
     }
     
     public String getPostGamePrompt() {
-        return ChatColor.translateAlternateColorCodes('&', 
-            messagesConfig.getString("post-game-prompt", "&7Choose: "));
+        return ChatColor.translateAlternateColorCodes('&',
+                this.plugin.getMessagesConfig().getString("post-game-prompt", "&7Choose: "));
     }
     
     // Betting category labels
     public String getBettingCategoryLabel(String category) {
-        return ChatColor.translateAlternateColorCodes('&', 
-            messagesConfig.getString("betting-category-" + category, "&7" + category.substring(0, 1).toUpperCase() + category.substring(1) + ": "));
+        return ChatColor.translateAlternateColorCodes('&',
+                this.plugin.getMessagesConfig().getString("betting-category-" + category, "&7" + category.substring(0, 1).toUpperCase() + category.substring(1) + ": "));
     }
 
     public boolean getShouldNotifyUpdates() {
-        return config.getBoolean("notify-updates", true);
+        return this.plugin.getConfig().getBoolean("notify-updates", true);
     }
+
 }

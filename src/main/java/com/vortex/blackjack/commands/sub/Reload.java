@@ -26,11 +26,9 @@ public class Reload extends SubCommand {
 
         this.plugin.reloadConfig();
 
-        // Reload messages configuration
-        File messagesFile = new File(this.plugin.getDataFolder(), "messages.yml");
-        FileConfiguration messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
+        // todo; pls reload messages & chips
+        configManager.reload();
 
-        configManager.reload(this.plugin.getConfig(), messagesConfig);
         sender.sendMessage(configManager.getMessage("config-reloaded"));
         return true;
     }
