@@ -6,6 +6,7 @@ import com.vortex.blackjack.table.TableManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -21,13 +22,11 @@ public class ChatListener implements Listener {
     private void runCmdAsync(Player player, String cmd) {
         new BukkitRunnable() {
             @Override
-            public void run() {
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
-            }
+            public void run() { Bukkit.dispatchCommand(player, cmd); }
         }.runTask(plugin);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onChat(AsyncPlayerChatEvent event) {
         TableManager tableManager = this.plugin.getTableManager();
 

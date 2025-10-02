@@ -194,7 +194,7 @@ public class ConfigManager {
 
         // Try messages config first, then fall back to main config with "messages." prefix
         if (messagesConfig.contains(path)) message = messagesConfig.getString(path);
-        else message = this.plugin.getConfig().getString("messages." + path);
+        else message = this.plugin.getMessagesConfig().getString("messages." + path);
         
         if (message == null) message = "&cMessage not found: " + path;
         

@@ -73,17 +73,15 @@ public class BlackjackPlugin extends JavaPlugin  {
 
         // Load chips configuration
         File chipsFile = new File(getDataFolder(), "chips.yml");
-        if (!chipsFile.exists()) {
+        if (!chipsFile.exists())
             saveResource("chips.yml", false);
-            this.chipsConfig = YamlConfiguration.loadConfiguration(chipsFile);
-        }
+        this.chipsConfig = YamlConfiguration.loadConfiguration(chipsFile);
         
         // Load messages configuration
         File messagesFile = new File(getDataFolder(), "messages.yml");
-        if (!messagesFile.exists()) {
+        if (!messagesFile.exists())
             saveResource("messages.yml", false);
-            this.messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
-        }
+        this.messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
 
         configManager = new ConfigManager(this);
         

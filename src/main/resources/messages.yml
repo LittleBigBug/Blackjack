@@ -73,6 +73,7 @@ player-wins: "&a%player% wins and gets back $%amount%!"
 player-loses: "&c%player% loses their bet of $%amount%!"
 player-pushes: "&e%player% pushes and gets their bet of %amount% back!"
 player-blackjack: "&6%player% got BLACKJACK and wins $%amount%!"
+player-push: "&e&l%player% PUSH (tie) - $%amount% returned"
 
 # Double down
 double-down-first-two-cards: "&cYou can only double down on your first two cards!"
@@ -129,12 +130,6 @@ game-ended: "&aGame ended!"
 player-turn: "&b%player%'s turn"
 player-hits-21: "%player% &6hits 21!&r"
 player-doubles-down: "%player% &6DOUBLES DOWN&r with %value%"
-
-# Game result messages  
-player-blackjack: "&6&l%player% BLACKJACK! &a+$%payout%"
-player-wins: "&a&l%player% WINS! &a+$%payout%"
-player-loses: "&c&l%player% loses -$%amount%"
-player-push: "&e&l%player% PUSH (tie) - $%amount% returned"
 
 # Balance display
 balance-display: "&aYour balance: &6%balance%%currency% &a| Current bet: &6%current-bet%%currency%"
