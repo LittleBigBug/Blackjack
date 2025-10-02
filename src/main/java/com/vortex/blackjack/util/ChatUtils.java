@@ -1,5 +1,6 @@
 package com.vortex.blackjack.util;
 
+import com.vortex.blackjack.BlackjackPlugin;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.ChatColor;
@@ -10,13 +11,13 @@ import com.vortex.blackjack.config.ConfigManager;
  * Utility for creating interactive chat messages with clickable actions
  */
 public class ChatUtils {
-    private final ConfigManager configManager;
+    private final BlackjackPlugin plugin;
     
     /**
      * Constructor for ChatUtils with ConfigManager dependency
      */
-    public ChatUtils(ConfigManager configManager) {
-        this.configManager = configManager;
+    public ChatUtils(BlackjackPlugin plugin) {
+        this.plugin = plugin;
     }
     
     /**
@@ -49,6 +50,8 @@ public class ChatUtils {
      * Create a game action bar with clickable options
      */
     public void sendGameActionBar(Player player, boolean showDoubleDown) {
+        ConfigManager configManager = plugin.getConfigManager();
+
         TextComponent hitButton = GenericUtils.createClickableButton(
             configManager.getButtonText("hit"), 
             configManager.getButtonCommand("hit"), 
@@ -84,6 +87,8 @@ public class ChatUtils {
      * Create betting options with clickable amounts (configurable)
      */
     public void sendBettingOptions(Player player) {
+        ConfigManager configManager = plugin.getConfigManager();
+
         player.sendMessage(configManager.getMessage("quick-bet-border"));
         player.sendMessage(configManager.getMessage("quick-bet-title"));
         player.sendMessage("");
@@ -120,6 +125,8 @@ public class ChatUtils {
      * Send clickable "Play Again" and "Leave Table" buttons
      */
     public void sendGameEndOptions(Player player) {
+        ConfigManager configManager = plugin.getConfigManager();
+
         TextComponent playAgainButton = GenericUtils.createClickableButton(
             configManager.getButtonText("play-again"), 
             configManager.getButtonCommand("play-again"), 

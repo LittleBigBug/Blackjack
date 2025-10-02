@@ -5,10 +5,12 @@ import com.vortex.blackjack.config.ConfigManager;
 import com.vortex.blackjack.economy.EconomyProvider;
 import com.vortex.blackjack.economy.VaultEconomyProvider;
 import com.vortex.blackjack.integration.BlackjackPlaceholderExpansion;
+import com.vortex.blackjack.listener.InteractListener;
 import com.vortex.blackjack.model.PlayerStats;
 import com.vortex.blackjack.table.BlackjackTable;
 import com.vortex.blackjack.table.TableManager;
 import com.vortex.blackjack.util.AsyncUtils;
+import com.vortex.blackjack.util.ChatUtils;
 import com.vortex.blackjack.util.GenericUtils;
 import com.vortex.blackjack.util.VersionChecker;
 import org.bukkit.command.Command;
@@ -39,6 +41,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     private ConfigManager configManager;
     private TableManager tableManager;
     private CommandManager commandManager;
+    private ChatUtils chatUtils;
     private AsyncUtils asyncUtils;
     private EconomyProvider economyProvider;
     
@@ -88,11 +91,12 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         configManager = new ConfigManager(getConfig(), messagesConfig);
         
         // Initialize core managers
-        tableManager = new TableManager(this, configManager);
+        tableManager = new TableManager(this);
         commandManager = new CommandManager(this);
+        chatUtils = new ChatUtils(this);
         asyncUtils = new AsyncUtils(this);
         versionChecker = new VersionChecker(this);
-        
+
         // Initialize economy provider - Vault with EssentialsX fallback
         economyProvider = initializeEconomyProvider();
         
@@ -124,6 +128,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         statsFile = new File(getDataFolder(), "stats.yml");
         
         // Register events
+        getServer().getPluginManager().registerEvents(new InteractListener(this), this);
         getServer().getPluginManager().registerEvents(this, this);
         
         // Register commands - this enables individual commands like /bet, /hit, /stand
@@ -369,9 +374,8 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         Player player = event.getPlayer();
         
         // Check if player is admin and notify about updates
-        if (player.hasPermission("blackjack.admin")) {
+        if (player.hasPermission("blackjack.admin"))
             versionChecker.notifyAdmin(player);
-        }
     }
     
     @EventHandler
@@ -785,6 +789,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     public ConfigManager getConfigManager() { return configManager; }
     public TableManager getTableManager() { return tableManager; }
     public EconomyProvider getEconomyProvider() { return economyProvider; }
+    public ChatUtils getChatUtils() { return chatUtils; }
     public AsyncUtils getAsyncUtils() { return asyncUtils; }
     
     // Player data getters

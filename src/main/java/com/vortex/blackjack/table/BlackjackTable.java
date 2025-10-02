@@ -12,22 +12,16 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
-import org.bukkit.entity.ItemDisplay;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.components.CustomModelDataComponent;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -35,9 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class BlackjackTable {
     private final BlackjackPlugin plugin;
-    private final TableManager tableManager;
-    private final ConfigManager configManager;
-    private final ChatUtils chatUtils;
     private final BlackjackEngine gameEngine;
     private final Location centerLoc;
     
@@ -51,29 +42,37 @@ public class BlackjackTable {
     private Player currentPlayer;
     private List<Card> dealerHand = new ArrayList<>();
     private Deck deck = new Deck();
-    
+
     // Display entities
+    private ItemDisplay tableDisplay;
+    private final Map<Integer, ItemDisplay> seatDisplays = new ConcurrentHashMap<>();
     private final Map<Player, List<ItemDisplay>> playerCardDisplays = new ConcurrentHashMap<>();
     private final Map<Player, List<ItemDisplay>> playerDealerDisplays = new ConcurrentHashMap<>();
+
+    private Interaction interactionEntity;
+
     private final Map<UUID, Long> lastMessageTime = new HashMap<>();
     
     // Auto-leave tracking
     private final Map<Player, Long> gameEndTimes = new ConcurrentHashMap<>();
     private BukkitTask autoLeaveTask;
     
-    public BlackjackTable(BlackjackPlugin plugin, TableManager tableManager, ConfigManager configManager, Location centerLoc) {
+    public BlackjackTable(BlackjackPlugin plugin, Location centerLoc) {
         this.plugin = plugin;
-        this.tableManager = tableManager;
-        this.configManager = configManager;
-        this.chatUtils = new ChatUtils(configManager);
         this.gameEngine = new BlackjackEngine();
         this.centerLoc = centerLoc;
+
+        this.createTableModels();
     }
     
     /**
      * Add a player to this table
      */
     public boolean addPlayer(Player player) {
+        ChatUtils chatUtils = plugin.getChatUtils();
+        TableManager tableManager = plugin.getTableManager();
+        ConfigManager configManager = plugin.getConfigManager();
+
         synchronized (this) {
             if (players.contains(player)) {
                 player.sendMessage(configManager.getMessage("already-at-table"));
@@ -172,6 +171,9 @@ public class BlackjackTable {
      * Remove a player from this table with custom reason
      */
     public void removePlayer(Player player, String reason) {
+        TableManager tableManager = plugin.getTableManager();
+        ConfigManager configManager = plugin.getConfigManager();
+
         synchronized (this) {
             if (!players.contains(player)) return;
             
@@ -251,6 +253,9 @@ public class BlackjackTable {
      * Start a new game at this table
      */
     public void startGame() {
+        ChatUtils chatUtils = plugin.getChatUtils();
+        ConfigManager configManager = plugin.getConfigManager();
+
         synchronized (this) {
             if (gameInProgress) {
                 broadcastTableMessage(configManager.getMessage("game-in-progress"));
@@ -284,7 +289,7 @@ public class BlackjackTable {
             // Initialize game
             gameInProgress = true;
             deck = new Deck();
-            clearAllDisplays();
+            clearAllCardDisplays();
             finishedPlayers.clear();
             doubleDownPlayers.clear();
             
@@ -294,7 +299,7 @@ public class BlackjackTable {
                 hand.add(deck.drawCard());
                 hand.add(deck.drawCard());
                 playerHands.put(player, hand);
-                updateCardDisplays(player, hand);
+                updatePlayerCardDisplays(player, hand);
             }
             
             // Deal dealer cards
@@ -316,6 +321,9 @@ public class BlackjackTable {
      * Player hits (takes another card)
      */
     public void hit(Player player) {
+        ChatUtils chatUtils = plugin.getChatUtils();
+        ConfigManager configManager = plugin.getConfigManager();
+
         synchronized (this) {
             if (!gameInProgress || !player.equals(currentPlayer)) {
                 return;
@@ -326,7 +334,7 @@ public class BlackjackTable {
             hand.add(newCard);
             
             playCardSound(player.getLocation());
-            updateCardDisplays(player, hand);
+            updatePlayerCardDisplays(player, hand);
             
             int value = gameEngine.calculateHandValue(hand);
             // Don't send individual hand value - it's already shown in updateCardDisplays
@@ -359,7 +367,7 @@ public class BlackjackTable {
             
             finishedPlayers.add(player);
             int value = gameEngine.calculateHandValue(playerHands.get(player));
-            broadcastTableMessage(configManager.formatMessage("player-stands", 
+            broadcastTableMessage(this.plugin.getConfigManager().formatMessage("player-stands",
                 "player", player.getName(), 
                 "value", formatHandValue(value)));
             nextTurn();
@@ -370,6 +378,8 @@ public class BlackjackTable {
      * Player doubles down (doubles bet, gets exactly one more card, then stands)
      */
     public void doubleDown(Player player) {
+        ConfigManager configManager = plugin.getConfigManager();
+
         synchronized (this) {
             if (!gameInProgress || !player.equals(currentPlayer)) {
                 return;
@@ -411,7 +421,7 @@ public class BlackjackTable {
             hand.add(newCard);
             
             playCardSound(player.getLocation());
-            updateCardDisplays(player, hand);
+            updatePlayerCardDisplays(player, hand);
             
             int value = gameEngine.calculateHandValue(hand);
             broadcastTableMessage(configManager.formatMessage("player-doubles-down", 
@@ -434,6 +444,9 @@ public class BlackjackTable {
     }
     
     private void nextTurn() {
+        ChatUtils chatUtils = plugin.getChatUtils();
+        ConfigManager configManager = plugin.getConfigManager();
+
         if (finishedPlayers.size() >= players.size()) {
             endGame();
             return;
@@ -466,6 +479,8 @@ public class BlackjackTable {
     }
     
     private void endGame() {
+        ConfigManager configManager = plugin.getConfigManager();
+
         synchronized (this) {
             if (!gameInProgress) return;
             
@@ -522,6 +537,8 @@ public class BlackjackTable {
     }
     
     private void handlePayout(Player player, int dealerValue) {
+        ConfigManager configManager = plugin.getConfigManager();
+
         List<Card> playerHand = playerHands.get(player);
         BlackjackEngine.GameResult result = gameEngine.determineResult(playerHand, dealerHand);
         
@@ -614,113 +631,28 @@ public class BlackjackTable {
     // Helper methods
     private int getNextAvailableSeatNumber() {
         Set<Integer> takenSeats = new HashSet<>(playerSeats.values());
-        for (int i = 0; i < configManager.getMaxPlayers(); i++) {
+        for (int i = 0; i < plugin.getConfigManager().getMaxPlayers(); i++) {
             if (!takenSeats.contains(i)) {
                 return i;
             }
         }
         return -1;
     }
-    
+
+    private Location getTableLocation() {
+        Location loc = this.centerLoc.clone();
+        loc.setPitch(0);
+
+        float locYaw = loc.getYaw() / 90;
+        loc.setYaw(Math.round(locYaw) * 90);
+
+        return loc;
+    }
+
     private Location getSeatLocation(int seatNumber) {
-        switch (seatNumber) {
-            case 0:
-                return centerLoc.clone().add(2.0, 0.0, 0.0);
-            case 1:
-                return centerLoc.clone().add(0.0, 0.0, 2.0);
-            case 2:
-                return centerLoc.clone().add(-2.0, 0.0, 0.0);
-            case 3:
-                return centerLoc.clone().add(0.0, 0.0, -2.0);
-            default:
-                return null;
-        }
-    }
-    
-    private Transformation createCardTransformation(boolean isDealer, int seatNumber) {
-        if (isDealer) {
-            float yRotation = switch (seatNumber) {
-                case 0 -> (float) (-Math.PI / 2);
-                case 1 -> (float) Math.PI;
-                case 2 -> (float) (Math.PI / 2);
-                case 3 -> 0.0f;
-                default -> 0.0f;
-            };
-            return new Transformation(
-                new Vector3f(0.0f, 0.0f, 0.0f),
-                new AxisAngle4f(yRotation, 0.0f, 1.0f, 0.0f),
-                new Vector3f(0.35f, 0.35f, 0.35f),
-                new AxisAngle4f((float)Math.toRadians(15.0), 1.0f, 0.0f, 0.0f)
-            );
-        } else {
-            float xRotation = (float) (Math.PI / 2);
-            float zRotation = 0.0f;
-            switch (seatNumber) {
-                case 0:
-                    zRotation = (float) (Math.PI / 2);
-                    break;
-                case 1:
-                    zRotation = (float) Math.PI;
-                    break;
-                case 2:
-                    zRotation = (float) (Math.PI / 2);
-                    break;
-                case 3:
-                    zRotation = (float) Math.PI;
-            }
-
-            return new Transformation(
-                new Vector3f(0.0f, 0.0f, 0.0f),
-                new AxisAngle4f(xRotation, 1.0f, 0.0f, 0.0f),
-                new Vector3f(0.35f, 0.35f, 0.35f),
-                new AxisAngle4f(zRotation, 0.0f, 0.0f, 1.0f)
-            );
-        }
-    }
-    
-    private ItemDisplay createCardDisplay(Location loc, Card card, boolean isDealer, int seatNumber) {
-        World world = loc.getWorld();
-        Location displayLoc = new Location(world, loc.getBlockX() + 0.5, loc.getBlockY(), loc.getBlockZ() + 0.5, 0.0f, 0.0f);
-        ItemDisplay display = (ItemDisplay)world.spawn(displayLoc, ItemDisplay.class);
-        
-        if (card != null) {
-            String cardIdentifier = getCardIdentifier(card);
-            ItemStack cardItem = new ItemStack(Material.CLOCK);
-            ItemMeta meta = cardItem.getItemMeta();
-            meta.setItemModel(new NamespacedKey("playing_cards", "card/" + cardIdentifier.toLowerCase()));
-            cardItem.setItemMeta(meta);
-            display.setItemStack(cardItem);
-        } else {
-            ItemStack cardBack = new ItemStack(Material.CLOCK);
-            ItemMeta meta = cardBack.getItemMeta();
-            meta.setItemModel(new NamespacedKey("playing_cards", "card/back"));
-            cardBack.setItemMeta(meta);
-            display.setItemStack(cardBack);
-        }
-
-        Transformation transform = createCardTransformation(isDealer, seatNumber);
-        display.setTransformation(transform);
-        return display;
-    }
-    
-    private String getCardIdentifier(Card card) {
-        String suit = switch (card.getSuit()) {
-            case "♠" -> "s";
-            case "♥" -> "h";
-            case "♦" -> "d";
-            case "♣" -> "c";
-            default -> throw new IllegalArgumentException("Invalid suit: " + card.getSuit());
-        };
-        
-        String rank = switch (card.getRank()) {
-            case "A" -> "1";
-            case "J" -> "j";
-            case "Q" -> "q";
-            case "K" -> "k";
-            default -> card.getRank().toLowerCase();
-        };
-        
-        return suit + rank;
+        Vector3f offset = this.getSeatOffset(seatNumber);
+        if (offset == null) return null;
+        return this.centerLoc.clone().add(offset.x, offset.y, offset.z);
     }
     
     private void sendPlayerMessage(Player player, String message) {
@@ -743,7 +675,7 @@ public class BlackjackTable {
                 player.sendMessage(message);
             } else {
                 // Wrap in table broadcast format
-                player.sendMessage(configManager.formatMessage("table-message-broadcast", "message", message));
+                player.sendMessage(this.plugin.getConfigManager().formatMessage("table-message-broadcast", "message", message));
             }
             lastMessageTime.put(playerId, currentTime);
         }
@@ -802,6 +734,8 @@ public class BlackjackTable {
     }
     
     private void playCardSound(Location loc) {
+        ConfigManager configManager = plugin.getConfigManager();
+
         if (configManager.areSoundsEnabled()) {
             loc.getWorld().playSound(loc, configManager.getCardDealSound(), 
                 configManager.getCardDealVolume(), configManager.getCardDealPitch());
@@ -809,6 +743,8 @@ public class BlackjackTable {
     }
     
     private void playWinSound(Player player) {
+        ConfigManager configManager = plugin.getConfigManager();
+
         if (configManager.areSoundsEnabled()) {
             player.playSound(player.getLocation(), configManager.getWinSound(), 1.0F, 1.0F);
         }
@@ -820,76 +756,291 @@ public class BlackjackTable {
     }
     
     private void playLoseSound(Player player) {
-        if (configManager.areSoundsEnabled()) {
+        ConfigManager configManager = plugin.getConfigManager();
+
+        if (configManager.areSoundsEnabled())
             player.playSound(player.getLocation(), configManager.getLoseSound(), 1.0F, 1.0F);
-        }
         
-        if (configManager.areParticlesEnabled()) {
+        if (configManager.areParticlesEnabled())
             player.spawnParticle(configManager.getLoseParticle(), 
                 player.getLocation().add(0.0, 2.0, 0.0), 10, 0.5, 0.5, 0.5);
-        }
     }
-    
-    // Display management methods - ORIGINAL IMPLEMENTATION
-    private void updateCardDisplays(Player player, List<Card> hand) {
-        int seatNumber = playerSeats.get(player);
-        Location baseDisplayLoc = getSeatLocation(seatNumber);
-        
-        if (playerCardDisplays.containsKey(player)) {
-            for (ItemDisplay display : playerCardDisplays.get(player)) {
-                display.remove();
+
+    private String getCardIdentifier(Card card) {
+        String suit = switch (card.getSuit()) {
+            case "♠" -> "s";
+            case "♥" -> "h";
+            case "♦" -> "d";
+            case "♣" -> "c";
+            default -> throw new IllegalArgumentException("Invalid suit: " + card.getSuit());
+        };
+
+        String rank = switch (card.getRank()) {
+            case "A" -> "1";
+            case "J" -> "j";
+            case "Q" -> "q";
+            case "K" -> "k";
+            default -> card.getRank().toLowerCase();
+        };
+
+        return suit + rank;
+    }
+
+    public Vector3f getSeatOffset(int seatNumber) {
+        return switch (seatNumber) {
+            case 0 -> new Vector3f(2.0f, 0.0f, 0.0f);
+            case 1 -> new Vector3f(1.0f, 0.0f, 1.2f);
+            case 2 -> new Vector3f(0.0f, 0.0f, 1.5f);
+            case 3 -> new Vector3f(-1.0f, 0.0f, 1.2f);
+            case 4 -> new Vector3f(-2.0f, 0.0f, 0.0f);
+            default -> null;
+        };
+    }
+
+    private float getSeatYaw(int seatNumber) {
+        return switch (seatNumber) {
+            case 0 -> 270f;
+            case 1 -> 206f;
+            case 2 -> 180f;
+            case 3 -> 154f;
+            case 4 -> 90f;
+            default -> 0.0f;
+        };
+    }
+
+    private Transformation createCardTransformation(boolean isDealer, int seatNumber) {
+        float fScale = plugin.getConfigManager().getCardScale();
+        Vector3f offset = new Vector3f(0.0f, 0.0f, 0.0f);
+        Vector3f scale = new Vector3f(fScale, fScale, fScale);
+
+        if (isDealer) {
+            float yRotation = switch (seatNumber) {
+                case 0 -> (float) (-Math.PI / 2);
+                case 1 -> (float) Math.PI;
+                case 2 -> (float) (Math.PI / 2);
+                case 3 -> 0.0f;
+                case 4 -> 0.0f;
+                default -> 0.0f;
+            };
+
+            return new Transformation(
+                    offset,
+                    new AxisAngle4f(yRotation, 0.0f, 1.0f, 0.0f),
+                    scale,
+                    new AxisAngle4f((float) Math.toRadians(15.0), 1.0f, 0.0f, 0.0f)
+            );
+        }
+
+        float xRotation = (float) (Math.PI / 2);
+        float zRotation = switch (seatNumber) {
+            case 1, 3 -> (float) Math.PI;
+            case 0, 2 -> (float) (Math.PI / 2);
+            default -> 0.0f;
+        };
+
+        return new Transformation(
+                offset,
+                new AxisAngle4f(xRotation, 1.0f, 0.0f, 0.0f),
+                scale,
+                new AxisAngle4f(zRotation, 0.0f, 0.0f, 1.0f)
+        );
+    }
+
+    private ItemDisplay createCardDisplay(Location loc, Card card, boolean isDealer, int seatNumber) {
+        World world = loc.getWorld();
+
+        if (world == null) return null;
+
+        Location displayLoc = new Location(world, loc.getBlockX() + 0.5, loc.getBlockY(), loc.getBlockZ() + 0.5, 0.0f, 0.0f);
+        ItemDisplay display = world.spawn(displayLoc, ItemDisplay.class);
+
+        ItemStack cardItem = new ItemStack(Material.CLOCK);
+
+        ItemMeta meta = cardItem.getItemMeta();
+        if (meta != null) {
+            String cardIdentifier = card != null ? getCardIdentifier(card) : "back";
+            meta.setItemModel(new NamespacedKey("playing_cards", "card/" + cardIdentifier.toLowerCase()));
+            cardItem.setItemMeta(meta);
+        }
+
+        display.setItemStack(cardItem);
+
+        Transformation transform = createCardTransformation(isDealer, seatNumber);
+        display.setTransformation(transform);
+
+        return display;
+    }
+
+    private ItemDisplay createTableDisplay() {
+        World world = this.centerLoc.getWorld();
+
+        if (world == null) return null;
+
+        ItemStack tableItem = new ItemStack(Material.BARRIER);
+        ItemMeta meta = tableItem.getItemMeta();
+
+        CustomModelDataComponent cmd = meta.getCustomModelDataComponent();
+        cmd.setFloats(Collections.singletonList(66610f)); // todo config
+        meta.setCustomModelDataComponent(cmd);
+
+        tableItem.setItemMeta(meta);
+
+        Location location = this.getTableLocation();
+
+        return world.spawn(location, ItemDisplay.class, d -> {
+            d.setItemStack(tableItem);
+            d.setBillboard(Display.Billboard.FIXED);
+            d.setInterpolationDuration(2);
+
+            d.setTransformation(new Transformation(
+                    new Vector3f(0, 0.5f, 0),
+                    new AxisAngle4f(),
+                    new Vector3f(1f, 1f, 1f),
+                    new AxisAngle4f()
+            ));
+            d.setPersistent(false);
+        });
+    }
+
+    private ItemDisplay createSeatDisplay(int seatNumber) {
+        Vector3f offset = getSeatOffset(seatNumber);
+        if (offset == null) return null;
+
+        Location tableLocation = this.getTableLocation();
+        World world = tableLocation.getWorld();
+        if (world == null) return null;
+
+        ItemStack seatItem = new ItemStack(Material.BARRIER);
+        ItemMeta meta = seatItem.getItemMeta();
+
+        CustomModelDataComponent cmd = meta.getCustomModelDataComponent();
+        cmd.setFloats(Collections.singletonList(77718f)); // todo config
+        meta.setCustomModelDataComponent(cmd);
+
+        seatItem.setItemMeta(meta);
+
+        return world.spawn(tableLocation, ItemDisplay.class, d -> {
+            d.setItemStack(seatItem);
+            d.setBillboard(Display.Billboard.FIXED);
+            d.setInterpolationDuration(2);
+
+            float yaw = getSeatYaw(seatNumber);
+            float radians = (float) Math.toRadians(yaw);
+
+            d.setTransformation(new Transformation(
+                    offset.add(new Vector3f(0, 0.5f, 0)),
+                    new AxisAngle4f(),
+                    new Vector3f(1f, 1f, 1f),
+                    new AxisAngle4f(radians, 0f, 1f, 0f)
+            ));
+            d.setPersistent(false);
+        });
+    }
+
+    private Interaction createTableInteraction() {
+        Location tableLocation = this.getTableLocation();
+        World world = tableLocation.getWorld();
+        if (world == null) return null;
+
+        return world.spawn(tableLocation, Interaction.class, in -> {
+            in.setInteractionWidth(4);
+            in.setInteractionHeight(1.5f);
+            in.setResponsive(true);
+            in.setPersistent(false);
+        });
+    }
+
+    public void createTableModels() {
+        this.tableDisplay = this.createTableDisplay();
+        for (int i = 0; i < this.plugin.getConfigManager().getMaxPlayers(); i++)
+            this.seatDisplays.put(i, this.createSeatDisplay(i));
+        this.interactionEntity = this.createTableInteraction();
+    }
+
+    private Vector3f getCardTranslation(int i, int seatNumber, int deckSize, boolean isDealer) {
+        ConfigManager configManager = plugin.getConfigManager();
+        double cardSpacing = configManager.getCardSpacing();
+
+        int sizeCap = deckSize - 1;
+
+        float dlrOffset = isDealer ? 0.18f : 0f;
+
+        float xOffset = 0.0f;
+        float zOffset = switch (seatNumber) {
+            case 0 -> {
+                xOffset = -1.35f - dlrOffset;
+                yield (float) (i * cardSpacing - sizeCap * cardSpacing / 2.0) - 0.47f;
             }
+            case 1 -> {
+                xOffset = (float) (i * cardSpacing - sizeCap * cardSpacing / 2.0);
+                yield (float) 1;
+            }
+            case 2 -> {
+                xOffset = (float) (-1);
+                yield (float) (-(i * cardSpacing) + sizeCap * cardSpacing / 2.0);
+            }
+            case 3 -> {
+                xOffset = (float) (-(i * cardSpacing) + sizeCap * cardSpacing / 2.0);
+                yield (float) (-1);
+            }
+            default -> 0.0f;
+        };
+
+        return new Vector3f(xOffset, 0, zOffset);
+    }
+
+    private List<ItemDisplay> updateCardDisplays(List<Card> hand, int seatNumber, boolean isDealer, float heightOffset) {
+        List<ItemDisplay> displays = new ArrayList<>();
+        Location baseDisplayLoc = getSeatLocation(seatNumber);
+
+        int size = hand.size();
+
+        for (int i = 0; i < size; i++) {
+            Card card = hand.get(i);
+            Location spawnLoc = baseDisplayLoc.clone();
+            Card displayCard = isDealer && gameInProgress && i > 0 ? null : card;
+            ItemDisplay display = createCardDisplay(spawnLoc, displayCard, isDealer, seatNumber);
+            Vector3f translation = this.getCardTranslation(i, seatNumber, size, isDealer).add(0, heightOffset, 0);
+            Transformation currentTransform = display.getTransformation();
+            Transformation newTransform = new Transformation(
+                    translation, currentTransform.getLeftRotation(), currentTransform.getScale(), currentTransform.getRightRotation()
+            );
+            display.setTransformation(newTransform);
+            displays.add(display);
+        }
+
+        return displays;
+    }
+
+    // Display management methods - ORIGINAL IMPLEMENTATION
+    private void updatePlayerCardDisplays(Player player, List<Card> hand) {
+        ConfigManager configManager = plugin.getConfigManager();
+
+        int seatNumber = playerSeats.get(player);
+
+        if (playerCardDisplays.containsKey(player)) {
+            for (ItemDisplay display : playerCardDisplays.get(player))
+                display.remove();
             playerCardDisplays.get(player).clear();
         }
 
         playerCardDisplays.putIfAbsent(player, new ArrayList<>());
-        double cardSpacing = configManager.getCardSpacing();
+
         double playerHeight = configManager.getPlayerCardHeight();
-        double distanceFromPlayer = 1.0; // Original hardcoded value
 
-        for (int i = 0; i < hand.size(); i++) {
-            Card card = hand.get(i);
-            Location spawnLoc = baseDisplayLoc.clone();
-            ItemDisplay display = createCardDisplay(spawnLoc, card, false, seatNumber);
-            Vector3f translation = new Vector3f();
-            float xOffset = 0.0f;
-            float zOffset = 0.0f;
-            
-            switch (seatNumber) {
-                case 0:
-                    xOffset = (float)(-distanceFromPlayer);
-                    zOffset = (float)(i * cardSpacing - (hand.size() - 1) * cardSpacing / 2.0);
-                    break;
-                case 1:
-                    xOffset = (float)(i * cardSpacing - (hand.size() - 1) * cardSpacing / 2.0);
-                    zOffset = (float)(-distanceFromPlayer);
-                    break;
-                case 2:
-                    xOffset = (float)distanceFromPlayer;
-                    zOffset = (float)(-(i * cardSpacing) + (hand.size() - 1) * cardSpacing / 2.0);
-                    break;
-                case 3:
-                    xOffset = (float)(-(i * cardSpacing) + (hand.size() - 1) * cardSpacing / 2.0);
-                    zOffset = (float)distanceFromPlayer;
-            }
-
-            translation.set(xOffset, playerHeight, zOffset);
-            Transformation currentTransform = display.getTransformation();
-            Transformation newTransform = new Transformation(
-                translation, currentTransform.getLeftRotation(), currentTransform.getScale(), currentTransform.getRightRotation()
-            );
-            display.setTransformation(newTransform);
-            playerCardDisplays.get(player).add(display);
-        }
+        List<ItemDisplay> displays = this.updateCardDisplays(hand, seatNumber, false, (float) playerHeight);
+        playerCardDisplays.get(player).addAll(displays);
 
         int handValue = gameEngine.calculateHandValue(hand);
         // Send colorized hand info - more compact and readable
-        player.sendMessage(configManager.formatMessage("hand-display", 
-            "hand", formatHand(hand), 
-            "hand_value", formatHandValue(handValue)));
+        player.sendMessage(configManager.formatMessage("hand-display",
+                "hand", formatHand(hand),
+                "hand_value", formatHandValue(handValue)));
     }
 
     private void updateDealerDisplays() {
+        ConfigManager configManager = plugin.getConfigManager();
+
         for (Player player : players) {
             if (playerDealerDisplays.containsKey(player)) {
                 for (ItemDisplay display : playerDealerDisplays.get(player)) {
@@ -901,62 +1052,24 @@ public class BlackjackTable {
 
         for (Player player : players) {
             playerDealerDisplays.putIfAbsent(player, new ArrayList<>());
-            List<ItemDisplay> dealerDisplays = new ArrayList<>();
             int seatNumber = playerSeats.get(player);
-            Location baseDisplayLoc = centerLoc.clone();
-            double cardSpacing = configManager.getCardSpacing();
             double dealerHeight = configManager.getDealerCardHeight();
-            double distanceFromCenter = 0.75; // Original hardcoded value
-            
+
             if (!dealerHand.isEmpty()) {
                 Card dealerVisibleCard = dealerHand.get(0);
                 // More compact dealer card message
-                player.sendMessage(configManager.formatMessage("dealer-shows", 
-                    "card", formatCard(dealerVisibleCard), 
-                    "value", dealerVisibleCard.getValue()));
+                player.sendMessage(configManager.formatMessage("dealer-shows",
+                        "card", formatCard(dealerVisibleCard),
+                        "value", dealerVisibleCard.getValue()));
             }
 
-            for (int i = 0; i < dealerHand.size(); i++) {
-                Card card = dealerHand.get(i);
-                Location spawnLoc = baseDisplayLoc.clone();
-                Card displayCard = gameInProgress && i > 0 ? null : card;
-                ItemDisplay display = createCardDisplay(spawnLoc, displayCard, true, seatNumber);
-                Vector3f translation = new Vector3f();
-                float xOffset = 0.0f;
-                float zOffset = 0.0f;
-                
-                switch (seatNumber) {
-                    case 0:
-                        xOffset = (float)distanceFromCenter;
-                        zOffset = (float)(i * cardSpacing - (dealerHand.size() - 1) * cardSpacing / 2.0);
-                        break;
-                    case 1:
-                        xOffset = (float)(i * cardSpacing - (dealerHand.size() - 1) * cardSpacing / 2.0);
-                        zOffset = (float)distanceFromCenter;
-                        break;
-                    case 2:
-                        xOffset = (float)(-distanceFromCenter);
-                        zOffset = (float)(-(i * cardSpacing) + (dealerHand.size() - 1) * cardSpacing / 2.0);
-                        break;
-                    case 3:
-                        xOffset = (float)(-(i * cardSpacing) + (dealerHand.size() - 1) * cardSpacing / 2.0);
-                        zOffset = (float)(-distanceFromCenter);
-                }
-
-                translation.set(xOffset, dealerHeight, zOffset);
-                Transformation currentTransform = display.getTransformation();
-                Transformation newTransform = new Transformation(
-                    translation, currentTransform.getLeftRotation(), currentTransform.getScale(), currentTransform.getRightRotation()
-                );
-                display.setTransformation(newTransform);
-                dealerDisplays.add(display);
-            }
+            List<ItemDisplay> dealerDisplays = this.updateCardDisplays(dealerHand, seatNumber, true, (float) dealerHeight);
 
             playerDealerDisplays.put(player, dealerDisplays);
         }
     }
-    
-    private void clearAllDisplays() {
+
+    private void clearAllCardDisplays() {
         // Clear displays for all players (not just current players list)
         for (List<ItemDisplay> cardDisplays : playerCardDisplays.values()) {
             if (cardDisplays != null) {
@@ -967,7 +1080,7 @@ public class BlackjackTable {
                 });
             }
         }
-        
+
         for (List<ItemDisplay> dealerDisplays : playerDealerDisplays.values()) {
             if (dealerDisplays != null) {
                 dealerDisplays.forEach(display -> {
@@ -977,16 +1090,28 @@ public class BlackjackTable {
                 });
             }
         }
-        
+
         playerCardDisplays.clear();
         playerDealerDisplays.clear();
     }
-    
+
+    private void cleanTableDisplay() {
+        if (this.tableDisplay != null) tableDisplay.remove();
+        tableDisplay = null;
+
+        for (ItemDisplay seat : seatDisplays.values()) seat.remove();
+        seatDisplays.clear();
+
+        if (this.interactionEntity != null) this.interactionEntity.remove();
+        interactionEntity = null;
+    }
+
     /**
      * Cleanup all resources for this table
      */
     public void cleanup() {
-        clearAllDisplays();
+        this.cleanTableDisplay();
+        this.clearAllCardDisplays();
         players.clear();
         playerHands.clear();
         playerSeats.clear();
@@ -1004,8 +1129,8 @@ public class BlackjackTable {
     
     // PlaceholderAPI support methods
     public int getPlayerCount() { return players.size(); }
-    public int getAvailableSeats() { return configManager.getMaxPlayers() - players.size(); }
-    public boolean isFull() { return players.size() >= configManager.getMaxPlayers(); }
+    public int getAvailableSeats() { return this.plugin.getConfigManager().getMaxPlayers() - players.size(); }
+    public boolean isFull() { return players.size() >= this.plugin.getConfigManager().getMaxPlayers(); }
     public Location getLocation() { return centerLoc; }
     
     public boolean hasPlayerHand(Player player) { return playerHands.containsKey(player); }
@@ -1047,44 +1172,40 @@ public class BlackjackTable {
     public int getDealerCardCount() { return dealerHand.size(); }
     
     private void sendGameEndButtons() {
-        for (Player player : players) {
-            chatUtils.sendGameEndOptions(player);
-        }
+        for (Player player : players)
+            this.plugin.getChatUtils().sendGameEndOptions(player);
     }
 
     public boolean canStartGame() {
-        if (gameInProgress || players.isEmpty()) {
-            return false;
-        }
+        if (gameInProgress || players.isEmpty()) return false;
         
         // Check if all players have bets
         java.util.Map<org.bukkit.entity.Player, Integer> playerBets = plugin.getPlayerBets();
         for (org.bukkit.entity.Player player : players) {
             Integer bet = playerBets.get(player);
-            if (bet == null || bet <= 0) {
-                return false;
-            }
+            if (bet == null || bet <= 0) return false;
         }
+
         return true;
     }
     
     private void startAutoLeaveTimer() {
         // Cancel any existing auto-leave task
-        if (autoLeaveTask != null) {
+        if (autoLeaveTask != null)
             autoLeaveTask.cancel();
-        }
         
         // Record the game end time for all players
         long gameEndTime = System.currentTimeMillis();
-        for (Player player : players) {
+        for (Player player : players)
             gameEndTimes.put(player, gameEndTime);
-        }
         
         // Start the auto-leave checker task
         autoLeaveTask = Bukkit.getScheduler().runTaskTimer(plugin, this::checkAutoLeave, 20L * 5L, 20L * 5L); // Check every 5 seconds
     }
     
     private void checkAutoLeave() {
+        ConfigManager configManager = plugin.getConfigManager();
+
         if (gameInProgress || players.size() <= 1) {
             // Cancel auto-leave if game is in progress or only 1 player left
             if (autoLeaveTask != null) {
@@ -1097,7 +1218,7 @@ public class BlackjackTable {
         
         long currentTime = System.currentTimeMillis();
         int timeoutMs = configManager.getAutoLeaveTimeoutSeconds() * 1000;
-        
+
         List<Player> playersToRemove = new ArrayList<>();
         for (Player player : new ArrayList<>(players)) {
             Long gameEndTime = gameEndTimes.get(player);
@@ -1132,4 +1253,6 @@ public class BlackjackTable {
         }
         gameEndTimes.clear();
     }
+
+    public Interaction getInteractionEntity() { return interactionEntity; }
 }

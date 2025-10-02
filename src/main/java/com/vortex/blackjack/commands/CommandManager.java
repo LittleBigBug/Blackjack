@@ -22,21 +22,6 @@ public class CommandManager {
         if (mainCmd != null) {
             mainCmd.setExecutor(plugin);
         }
-        
-        // Individual commands for better UX
-        registerCommand("bet", new BetCommand(plugin));
-        registerCommand("hit", new SimpleForwardCommand(plugin, "hit"));
-        registerCommand("stand", new SimpleForwardCommand(plugin, "stand"));
-        registerCommand("doubledown", new SimpleForwardCommand(plugin, "doubledown"));
-        registerCommand("join", new SimpleForwardCommand(plugin, "join"));
-        registerCommand("leave", new SimpleForwardCommand(plugin, "leave"));
-        registerCommand("start", new SimpleForwardCommand(plugin, "start"));
-        registerCommand("stats", new StatsCommand(plugin));
-        
-        // Admin commands
-        registerCommand("createtable", new SimpleForwardCommand(plugin, "createtable"));
-        registerCommand("removetable", new SimpleForwardCommand(plugin, "removetable"));
-        registerCommand("bjversion", new VersionCommand(plugin, plugin.getVersionChecker()));
     }
     
     private void registerCommand(String name, BlackjackCommand executor) {

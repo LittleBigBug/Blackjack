@@ -20,13 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class TableManager {
     private final BlackjackPlugin plugin;
-    private final ConfigManager configManager;
     private final Map<Location, BlackjackTable> tables = new ConcurrentHashMap<>();
     private final Map<Player, BlackjackTable> playerTables = new ConcurrentHashMap<>();
     
-    public TableManager(BlackjackPlugin plugin, ConfigManager configManager) {
+    public TableManager(BlackjackPlugin plugin) {
         this.plugin = plugin;
-        this.configManager = configManager;
     }
     
     /**
@@ -89,26 +87,7 @@ public class TableManager {
         
         // Ensure chunk is loaded
         world.getChunkAt(centerLoc).load();
-        
-        Material tableMaterial = configManager.getTableMaterial();
-        Material chairMaterial = configManager.getChairMaterial();
-        
-        // Create table blocks (3x3 hollow square)
-        for (int x = -1; x <= 1; x++) {
-            for (int z = -1; z <= 1; z++) {
-                if (x != 0 || z != 0) { // Don't place block in center
-                    Location blockLoc = new Location(world, centerX + x, centerY, centerZ + z);
-                    blockLoc.getBlock().setType(tableMaterial);
-                }
-            }
-        }
-        
-        // Place chairs at cardinal directions
-        placeStair(world, centerX + 2, centerY, centerZ, BlockFace.EAST, chairMaterial);
-        placeStair(world, centerX - 2, centerY, centerZ, BlockFace.WEST, chairMaterial);
-        placeStair(world, centerX, centerY, centerZ + 2, BlockFace.SOUTH, chairMaterial);
-        placeStair(world, centerX, centerY, centerZ - 2, BlockFace.NORTH, chairMaterial);
-        
+
         // Save to config if requested
         if (saveToConfig) {
             String tablePath = "tables." + world.getName() + "." + centerX + "_" + centerY + "_" + centerZ;
@@ -117,7 +96,7 @@ public class TableManager {
         }
         
         // Create table object
-        BlackjackTable table = new BlackjackTable(plugin, this, configManager, centerLoc);
+        BlackjackTable table = new BlackjackTable(plugin, centerLoc);
         tables.put(centerLoc, table);
         
         return true;
@@ -163,7 +142,7 @@ public class TableManager {
      * Find the nearest table to a player's location
      */
     public BlackjackTable findNearestTable(Location playerLoc) {
-        double maxDistance = configManager.getMaxJoinDistance();
+        double maxDistance = plugin.getConfigManager().getMaxJoinDistance();
         double closestDistance = maxDistance;
         BlackjackTable closestTable = null;
         
