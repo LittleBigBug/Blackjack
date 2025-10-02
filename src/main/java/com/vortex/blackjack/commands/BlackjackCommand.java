@@ -1,50 +1,80 @@
 package com.vortex.blackjack.commands;
 
+import com.vortex.blackjack.BlackjackPlugin;
+import com.vortex.blackjack.commands.sub.Bet;
+import com.vortex.blackjack.commands.sub.SubCommand;
+import com.vortex.blackjack.config.ConfigManager;
 import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
-import org.bukkit.util.StringUtil;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.HashMap;
 
-/**
- * Base class for blackjack commands with common functionality
- */
-public abstract class BlackjackCommand implements CommandExecutor, TabCompleter {
-    
-    protected boolean isPlayer(CommandSender sender) {
-        return sender instanceof Player;
+public class BlackjackCommand extends BaseCommand {
+
+    private final HashMap<String, SubCommand> subCommands = new HashMap<>();
+
+    public BlackjackCommand(BlackjackPlugin plugin) {
+        super(plugin);
+
+        SubCommand[] subCommands = new SubCommand[] {
+                new Bet(plugin)
+        };
+        this.registerSubCommands(subCommands);
     }
-    
-    protected Player getPlayer(CommandSender sender) {
-        if (sender instanceof Player) {
-            return (Player) sender;
+
+    private void registerSubCommands(SubCommand[] subCommands) {
+        for (SubCommand subCommand : subCommands)
+            this.subCommands.put(subCommand.getSubCommandName(), subCommand);
+    }
+
+    private void sendHelp(CommandSender sender) {
+        ConfigManager configManager = this.plugin.getConfigManager();
+
+        sender.sendMessage(configManager.getMessage("prefix") + configManager.getMessage("help-header"));
+
+        if (sender.hasPermission("blackjack.admin")) {
+            sender.sendMessage(configManager.getMessage("help-admin-create"));
+            sender.sendMessage(configManager.getMessage("help-admin-remove"));
+            sender.sendMessage(configManager.getMessage("help-admin-reload"));
         }
-        return null;
+
+        sender.sendMessage(configManager.getMessage("help-join"));
+        sender.sendMessage(configManager.getMessage("help-leave"));
+        sender.sendMessage(configManager.getMessage("help-bet"));
+        sender.sendMessage(configManager.getMessage("help-start"));
+        sender.sendMessage(configManager.getMessage("help-hit"));
+        sender.sendMessage(configManager.getMessage("help-stand"));
+        sender.sendMessage(configManager.getMessage("help-stats"));
+
+        if (sender.hasPermission("blackjack.stats.others"))
+            sender.sendMessage(configManager.getMessage("help-stats-others"));
     }
-    
-    protected void sendPlayerOnlyMessage(CommandSender sender) {
-        // We'll need to get the config manager to send this message properly
-        // For now, use the hardcoded message to avoid breaking functionality
-        sender.sendMessage("§cThis command can only be used by players!");
-    }
-    
+
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        return Collections.emptyList(); // Override in subclasses if needed
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String s, @NotNull String[] args) {
+        ConfigManager configManager = this.plugin.getConfigManager();
+
+        if (args.length == 0) {
+            sendHelp(sender);
+            return true;
+        }
+
+        String action = args[0].toLowerCase();
+        SubCommand subCommand = this.subCommands.get(action);
+
+        if (subCommand != null) {
+            if (subCommand.isPlayerOnly() && !(sender instanceof Player)){
+                sender.sendMessage(configManager.getMessage("player-only-command"));
+                return true;
+            }
+
+            return subCommand.onCommand(sender, args);
+        }
+
+        this.sendHelp(sender);
+        return true;
     }
-    
-    /**
-     * Helper method for tab completion with string matching
-     */
-    protected List<String> filterCompletions(List<String> completions, String partial) {
-        List<String> result = new ArrayList<>();
-        StringUtil.copyPartialMatches(partial, completions, result);
-        Collections.sort(result);
-        return result;
-    }
+
 }

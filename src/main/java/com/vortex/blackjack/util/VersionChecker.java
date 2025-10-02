@@ -93,25 +93,21 @@ public class VersionChecker {
      * Send update notification to an admin player
      */
     public void notifyAdmin(Player admin) {
-        if (checkFailed) {
-            return; // Don't notify if check failed
-        }
-        
-        if (isOutdated) {
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                String downloadUrl = "https://github.com/" + gitHubRepo + "/releases/latest";
-                
-                admin.sendMessage("§e╔═══════════════════════════════════════════════════════════════════════════╗");
-                admin.sendMessage("§e║ §6⚠ BLACKJACK PLUGIN UPDATE AVAILABLE§e                                  ║");
-                admin.sendMessage("§e║                                                                           ║");
-                admin.sendMessage("§e║ §fCurrent Version: §c" + currentVersion + "§e                                                  ║");
-                admin.sendMessage("§e║ §fLatest Version:  §a" + latestVersion + "§e                                                  ║");
-                admin.sendMessage("§e║                                                                           ║");
-                admin.sendMessage("§e║ §bDownload: §9" + downloadUrl + "§e     ║");
-                admin.sendMessage("§e║ §7Use §f/bjversion§7 for more details§e                                    ║");
-                admin.sendMessage("§e╚═══════════════════════════════════════════════════════════════════════════╝");
-            }, 40L); // Delay 2 seconds after join
-        }
+        if (checkFailed || !isOutdated) return;
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            String downloadUrl = "https://github.com/" + gitHubRepo + "/releases/latest";
+
+            admin.sendMessage("§e╔═══════════════════════════════════════════════════════════════════════════╗");
+            admin.sendMessage("§e║ §6⚠ BLACKJACK PLUGIN UPDATE AVAILABLE§e                                  ║");
+            admin.sendMessage("§e║                                                                           ║");
+            admin.sendMessage("§e║ §fCurrent Version: §c" + currentVersion + "§e                                                  ║");
+            admin.sendMessage("§e║ §fLatest Version:  §a" + latestVersion + "§e                                                  ║");
+            admin.sendMessage("§e║                                                                           ║");
+            admin.sendMessage("§e║ §bDownload: §9" + downloadUrl + "§e     ║");
+            admin.sendMessage("§e║ §7Use §f/bj version§7 for more details§e                                   ║");
+            admin.sendMessage("§e╚═══════════════════════════════════════════════════════════════════════════╝");
+        }, 40L); // Delay 2 seconds after join
     }
     
     /**

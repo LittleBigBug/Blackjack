@@ -1,33 +1,27 @@
 package com.vortex.blackjack;
 
-import com.vortex.blackjack.commands.CommandManager;
+import com.vortex.blackjack.commands.BlackjackCommand;
 import com.vortex.blackjack.config.ConfigManager;
 import com.vortex.blackjack.economy.EconomyProvider;
 import com.vortex.blackjack.economy.VaultEconomyProvider;
 import com.vortex.blackjack.integration.BlackjackPlaceholderExpansion;
+import com.vortex.blackjack.listener.ChatListener;
 import com.vortex.blackjack.listener.InteractListener;
+import com.vortex.blackjack.listener.PlayerListener;
 import com.vortex.blackjack.model.PlayerStats;
-import com.vortex.blackjack.table.BlackjackTable;
+import com.vortex.blackjack.table.BetManager;
 import com.vortex.blackjack.table.TableManager;
 import com.vortex.blackjack.util.AsyncUtils;
 import com.vortex.blackjack.util.ChatUtils;
 import com.vortex.blackjack.util.GenericUtils;
 import com.vortex.blackjack.util.VersionChecker;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,16 +29,16 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Main Blackjack plugin class
  */
-public class BlackjackPlugin extends JavaPlugin implements Listener {
+public class BlackjackPlugin extends JavaPlugin  {
     
     // Core managers - each handles a specific responsibility
     private ConfigManager configManager;
     private TableManager tableManager;
-    private CommandManager commandManager;
     private ChatUtils chatUtils;
     private AsyncUtils asyncUtils;
     private EconomyProvider economyProvider;
-    
+    private BetManager betManager;
+
     // GSit integration
     private boolean gSitEnabled = false;
     
@@ -55,9 +49,6 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     private VersionChecker versionChecker;
     
     // Player data - thread-safe collections
-    private final Map<Player, Integer> playerBets = new ConcurrentHashMap<>();
-    private final Map<Player, Integer> playerPersistentBets = new ConcurrentHashMap<>(); // Keeps bet amount for "Play Again"
-    private final Map<Player, Long> lastBetTime = new ConcurrentHashMap<>();
     private final Map<UUID, PlayerStats> playerStats = new ConcurrentHashMap<>();
     
     // Files
@@ -91,8 +82,8 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         configManager = new ConfigManager(getConfig(), messagesConfig);
         
         // Initialize core managers
+        betManager = new BetManager(this);
         tableManager = new TableManager(this);
-        commandManager = new CommandManager(this);
         chatUtils = new ChatUtils(this);
         asyncUtils = new AsyncUtils(this);
         versionChecker = new VersionChecker(this);
@@ -128,11 +119,14 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         statsFile = new File(getDataFolder(), "stats.yml");
         
         // Register events
+        getServer().getPluginManager().registerEvents(new ChatListener(this), this);
         getServer().getPluginManager().registerEvents(new InteractListener(this), this);
-        getServer().getPluginManager().registerEvents(this, this);
+        getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
         
-        // Register commands - this enables individual commands like /bet, /hit, /stand
-        commandManager.registerCommands();
+        // Register commands
+        PluginCommand cmd = this.getCommand("blackjack");
+        if (cmd != null) cmd.setExecutor(new BlackjackCommand(this));
+        else getLogger().severe("Could not register command /blackjack!");
         
         // Load tables from config
         tableManager.loadTablesFromConfig();
@@ -152,24 +146,22 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     @Override
     public void onDisable() {
         // Unregister PlaceholderAPI expansion
-        if (placeholderExpansion != null) {
-            placeholderExpansion.unregister();
-        }
-        
+        if (placeholderExpansion != null)
+            this.placeholderExpansion.unregister();
+
         // Cancel all async tasks
-        if (asyncUtils != null) {
-            asyncUtils.cancelAllTasks();
-        }
-        
+        if (asyncUtils != null)
+            this.asyncUtils.cancelAllTasks();
+
         // Cleanup and refund bets
         if (tableManager != null) {
-            refundAllBets();
-            tableManager.cleanup();
+            this.betManager.refundAllBets();
+            this.tableManager.cleanup();
         }
-        
+
         // Save player stats
         savePlayerStats();
-        
+
         getLogger().info("Blackjack plugin disabled!");
     }
     
@@ -369,376 +361,6 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         return provider; // Return even if not enabled, might work after delay
     }
     
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        
-        // Check if player is admin and notify about updates
-        if (player.hasPermission("blackjack.admin"))
-            versionChecker.notifyAdmin(player);
-    }
-    
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        Player player = event.getPlayer();
-        
-        // Remove from bet tracking
-        lastBetTime.remove(player);
-        playerPersistentBets.remove(player);
-        
-        // Remove from table if they're at one
-        if (tableManager != null) {
-            tableManager.removePlayerFromTable(player, "disconnected from the server");
-        }
-        
-        // Note: Stats are now saved periodically, not on every quit for better performance
-    }
-    
-    @EventHandler
-    public void onPlayerMove(PlayerMoveEvent event) {
-        Player player = event.getPlayer();
-        
-        // Only check if player moved to a different block (optimization)
-        if (event.getFrom().getBlockX() == event.getTo().getBlockX() && 
-            event.getFrom().getBlockZ() == event.getTo().getBlockZ()) {
-            return;
-        }
-        
-        // Check if player is at a table
-        if (tableManager != null) {
-            BlackjackTable table = tableManager.getPlayerTable(player);
-            if (table != null) {
-                double distance = player.getLocation().distance(table.getCenterLocation());
-                double maxDistance = configManager.getMaxJoinDistance();
-                
-                if (distance > maxDistance) {
-                    // Player moved too far from table, auto-leave
-                    table.removePlayer(player, "moved too far from the table");
-                    player.sendMessage(configManager.getMessage("auto-left-table")
-                        .replace("%distance%", String.format("%.1f", distance))
-                        .replace("%max_distance%", String.format("%.1f", maxDistance)));
-                }
-            }
-        }
-    }
-    
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage(configManager.getMessage("player-only-command"));
-            return true;
-        }
-        
-        if (args.length == 0) {
-            sendHelp(player);
-            return true;
-        }
-        
-        String action = args[0].toLowerCase();
-        
-        return switch (action) {
-            case "createtable" -> handleCreateTable(player);
-            case "removetable" -> handleRemoveTable(player);
-            case "join" -> handleJoin(player);
-            case "leave" -> handleLeave(player);
-            case "start" -> handleStart(player);
-            case "hit" -> handleHit(player);
-            case "stand" -> handleStand(player);
-            case "doubledown" -> handleDoubleDown(player);
-            case "bet" -> handleBet(player, args);
-            case "stats" -> handleStats(player, args);
-            case "reload" -> handleReload(player);
-            default -> {
-                sendHelp(player);
-                yield true;
-            }
-        };
-    }
-    
-    // Command handlers - clean and focused methods
-    
-    private boolean handleCreateTable(Player player) {
-        if (!player.hasPermission("blackjack.admin")) {
-            player.sendMessage(configManager.getMessage("no-permission"));
-            return true;
-        }
-        
-        if (tableManager.createTable(player.getLocation())) {
-            player.sendMessage(configManager.getMessage("table-created"));
-        } else {
-            player.sendMessage(configManager.getMessage("table-already-exists"));
-        }
-        return true;
-    }
-    
-    private boolean handleRemoveTable(Player player) {
-        if (!player.hasPermission("blackjack.admin")) {
-            player.sendMessage(configManager.getMessage("no-permission"));
-            return true;
-        }
-        
-        BlackjackTable nearestTable = tableManager.findNearestTable(player.getLocation());
-        if (nearestTable != null) {
-            if (tableManager.removeTable(nearestTable.getCenterLocation())) {
-                player.sendMessage(configManager.getMessage("table-removed"));
-            } else {
-                player.sendMessage(configManager.getMessage("table-remove-failed"));
-            }
-        } else {
-            player.sendMessage(configManager.getMessage("no-table-nearby"));
-        }
-        return true;
-    }
-    
-    private boolean handleJoin(Player player) {
-        if (tableManager.getPlayerTable(player) != null) {
-            player.sendMessage(configManager.getMessage("already-at-table"));
-            return true;
-        }
-        
-        BlackjackTable nearestTable = tableManager.findNearestTable(player.getLocation());
-        if (nearestTable != null) {
-            nearestTable.addPlayer(player);
-        } else {
-            player.sendMessage(configManager.getMessage("no-table-nearby"));
-        }
-        return true;
-    }
-    
-    private boolean handleLeave(Player player) {
-        BlackjackTable table = tableManager.getPlayerTable(player);
-        if (table != null) {
-            // Remove player from table (this will handle bet refunding automatically if needed)
-            table.removePlayer(player);
-            
-            // Clear persistent bet when leaving
-            playerPersistentBets.remove(player);
-        } else {
-            player.sendMessage(configManager.getMessage("not-at-table"));
-        }
-        return true;
-    }
-    
-    private boolean handleStart(Player player) {
-        BlackjackTable table = tableManager.getPlayerTable(player);
-        if (table != null) {
-            // Auto-bet if player has a persistent bet amount but no current bet
-            Integer currentBet = playerBets.get(player);
-            Integer persistentBet = playerPersistentBets.get(player);
-            
-            if ((currentBet == null || currentBet == 0) && persistentBet != null && persistentBet > 0) {
-                // Attempt to place the persistent bet automatically
-                if (processBet(player, persistentBet)) {
-                    player.sendMessage(configManager.formatMessage("auto-bet-placed", "amount", persistentBet));
-                }
-            }
-            
-            table.startGame();
-        } else {
-            player.sendMessage(configManager.getMessage("not-at-table"));
-        }
-        return true;
-    }
-    
-    private boolean handleHit(Player player) {
-        return GenericUtils.handleTableAction(player, tableManager, configManager, "hit", 
-            table -> table.hit(player));
-    }
-    
-    private boolean handleStand(Player player) {
-        return GenericUtils.handleTableAction(player, tableManager, configManager, "stand", 
-            table -> table.stand(player));
-    }
-    
-    private boolean handleDoubleDown(Player player) {
-        return GenericUtils.handleTableAction(player, tableManager, configManager, "doubledown", 
-            table -> table.doubleDown(player));
-    }
-    
-    private boolean handleBet(Player player, String[] args) {
-        if (tableManager.getPlayerTable(player) == null) {
-            player.sendMessage(configManager.getMessage("not-at-table"));
-            return true;
-        }
-        
-        if (args.length < 2) {
-            player.sendMessage(configManager.getMessage("bet-usage"));
-            return true;
-        }
-        
-        Integer amount = GenericUtils.parseIntegerArgument(args[1], player, configManager, "invalid-amount");
-        if (amount == null) {
-            return true;
-        }
-        return processBet(player, amount);
-    }
-    
-    private boolean handleStats(Player player, String[] args) {
-        UUID targetUUID = player.getUniqueId();
-        String targetName = player.getName();
-        
-        // Check if admin is checking another player's stats
-        if (args.length > 1) {
-            if (!player.hasPermission("blackjack.stats.others")) {
-                player.sendMessage(configManager.getMessage("stats-no-permission"));
-                return true;
-            }
-            
-            targetName = args[1];
-            Player targetPlayer = getServer().getPlayer(targetName);
-            if (targetPlayer != null) {
-                targetUUID = targetPlayer.getUniqueId();
-                targetName = targetPlayer.getName();
-            } else {
-                // Try to find offline player using UUID (avoiding deprecated method)
-                try {
-                    // Attempt to get UUID from Mojang API or cache (implement as needed)
-                    // Example: Use a UUID cache or external API here for production
-                    // For now, fallback to searching known offline players
-                    org.bukkit.OfflinePlayer[] offlinePlayers = getServer().getOfflinePlayers();
-                    org.bukkit.OfflinePlayer offlinePlayer = null;
-                    for (org.bukkit.OfflinePlayer op : offlinePlayers) {
-                        if (op.getName() != null && op.getName().equalsIgnoreCase(targetName)) {
-                            offlinePlayer = op;
-                            break;
-                        }
-                    }
-                    if (offlinePlayer != null && offlinePlayer.hasPlayedBefore()) {
-                        targetUUID = offlinePlayer.getUniqueId();
-                        targetName = offlinePlayer.getName();
-                    } else {
-                        player.sendMessage(configManager.formatMessage("stats-player-not-found", "player", targetName));
-                        return true;
-                    }
-                } catch (Exception ex) {
-                    player.sendMessage(configManager.formatMessage("stats-player-not-found", "player", targetName));
-                    return true;
-                }
-            }
-        }
-        
-        // Load stats for the target player
-        FileConfiguration statsConfig = YamlConfiguration.loadConfiguration(statsFile);
-        PlayerStats stats = GenericUtils.loadPlayerStats(statsConfig, targetUUID);
-        
-        if (stats.getTotalHands() == 0) {
-            if (targetUUID.equals(player.getUniqueId())) {
-                player.sendMessage(configManager.getMessage("stats-none-found"));
-            } else {
-                player.sendMessage(configManager.formatMessage("stats-none-found-player", "player", targetName));
-            }
-            return true;
-        }
-        
-        // Use generic stats display method
-        GenericUtils.sendStatsToPlayer(player, stats, configManager, targetName, 
-            targetUUID.equals(player.getUniqueId()));
-        
-        return true;
-    }
-    
-    private boolean handleReload(Player player) {
-        if (!player.hasPermission("blackjack.admin")) {
-            player.sendMessage(configManager.getMessage("no-permission"));
-            return true;
-        }
-        
-        reloadConfig();
-        
-        // Reload messages configuration
-        File messagesFile = new File(getDataFolder(), "messages.yml");
-        FileConfiguration messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
-        
-        configManager.reload(getConfig(), messagesConfig);
-        player.sendMessage(configManager.getMessage("config-reloaded"));
-        return true;
-    }
-    
-    // Betting system - improved and thread-safe
-    
-    private boolean processBet(Player player, int amount) {
-        // Validate bet amount
-        if (amount < configManager.getMinBet() || amount > configManager.getMaxBet()) {
-            player.sendMessage(configManager.formatMessage("invalid-bet", 
-                "min_bet", configManager.getMinBet(), "max_bet", configManager.getMaxBet()));
-            return true;
-        }
-        
-        // Check cooldown
-        long currentTime = System.currentTimeMillis();
-        long lastBet = lastBetTime.getOrDefault(player, 0L);
-        if (currentTime - lastBet < configManager.getBetCooldown()) {
-            player.sendMessage(configManager.getMessage("bet-cooldown"));
-            return true;
-        }
-        
-        // Check if player has enough money
-        if (!economyProvider.hasEnough(player.getUniqueId(), BigDecimal.valueOf(amount))) {
-            player.sendMessage(configManager.formatMessage("insufficient-funds", "amount", amount));
-            return true;
-        }
-        
-        // Process the bet
-        int previousBet = playerBets.getOrDefault(player, 0);
-        int difference = amount - previousBet;
-        
-        if (difference > 0) {
-            // Taking more money
-            if (economyProvider.subtract(player.getUniqueId(), BigDecimal.valueOf(difference))) {
-                playerBets.put(player, amount);
-                playerPersistentBets.put(player, amount); // Store for "Play Again"
-                lastBetTime.put(player, currentTime);
-                player.sendMessage(configManager.formatMessage("bet-set", "amount", amount));
-                
-                // Auto-start game if player is at table and no game in progress
-                BlackjackTable table = tableManager.getPlayerTable(player);
-                if (table != null && !table.isGameInProgress() && previousBet == 0) {
-                    // First bet placed, try to start game
-                    this.getServer().getScheduler().runTaskLater(this, () -> {
-                        if (table.canStartGame()) {
-                            table.startGame();
-                        }
-                    }, 20L); // 1 second delay to allow other players to bet
-                }
-            } else {
-                player.sendMessage(configManager.getMessage("bet-failed"));
-            }
-        } else if (difference < 0) {
-            // Refunding some money
-            int refund = -difference;
-            if (economyProvider.add(player.getUniqueId(), BigDecimal.valueOf(refund))) {
-                playerBets.put(player, amount);
-                playerPersistentBets.put(player, amount); // Store for "Play Again"
-                lastBetTime.put(player, currentTime);
-                player.sendMessage(configManager.formatMessage("bet-reduced-refunded", "amount", amount, "refund", refund));
-            } else {
-                player.sendMessage(configManager.getMessage("bet-refund-failed"));
-            }
-        } else {
-            player.sendMessage(configManager.formatMessage("bet-already-set", "amount", amount));
-        }
-        
-        return true;
-    }
-    
-    private void refundAllBets() {
-        for (Map.Entry<Player, Integer> entry : playerBets.entrySet()) {
-            Player player = entry.getKey();
-            Integer amount = entry.getValue();
-            
-            if (amount != null && amount > 0) {
-                BlackjackTable table = tableManager.getPlayerTable(player);
-                if (table == null || !table.isGameInProgress()) {
-                    economyProvider.add(player.getUniqueId(), BigDecimal.valueOf(amount));
-                    if (player.isOnline()) {
-                        player.sendMessage(configManager.formatMessage("bet-refunded-shutdown", "amount", amount));
-                    }
-                }
-            }
-        }
-        playerBets.clear();
-    }
-    
     // Player statistics system
     
     
@@ -763,27 +385,7 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
         }
     }
     
-    private void sendHelp(Player player) {
-        player.sendMessage(configManager.getMessage("prefix") + configManager.getMessage("help-header"));
-        
-        if (player.hasPermission("blackjack.admin")) {
-            player.sendMessage(configManager.getMessage("help-admin-create"));
-            player.sendMessage(configManager.getMessage("help-admin-remove"));
-            player.sendMessage(configManager.getMessage("help-admin-reload"));
-        }
-        
-        player.sendMessage(configManager.getMessage("help-join"));
-        player.sendMessage(configManager.getMessage("help-leave"));
-        player.sendMessage(configManager.getMessage("help-bet"));
-        player.sendMessage(configManager.getMessage("help-start"));
-        player.sendMessage(configManager.getMessage("help-hit"));
-        player.sendMessage(configManager.getMessage("help-stand"));
-        player.sendMessage(configManager.getMessage("help-stats"));
-        
-        if (player.hasPermission("blackjack.stats.others")) {
-            player.sendMessage(configManager.getMessage("help-stats-others"));
-        }
-    }
+
     
     // Getters for managers (used by other classes)
     public ConfigManager getConfigManager() { return configManager; }
@@ -791,11 +393,11 @@ public class BlackjackPlugin extends JavaPlugin implements Listener {
     public EconomyProvider getEconomyProvider() { return economyProvider; }
     public ChatUtils getChatUtils() { return chatUtils; }
     public AsyncUtils getAsyncUtils() { return asyncUtils; }
+    public BetManager getBetManager() { return betManager; }
     
     // Player data getters
-    public Map<Player, Integer> getPlayerBets() { return playerBets; }
-    public Map<Player, Integer> getPlayerPersistentBets() { return playerPersistentBets; }
     public Map<UUID, PlayerStats> getPlayerStats() { return playerStats; }
+    public File getStatsFile() { return statsFile; }
     public boolean isGSitEnabled() { return gSitEnabled; }
     
     public VersionChecker getVersionChecker() { return versionChecker; }

@@ -291,4 +291,8 @@ public class ConfigManager {
         return ChatColor.translateAlternateColorCodes('&', 
             messagesConfig.getString("betting-category-" + category, "&7" + category.substring(0, 1).toUpperCase() + category.substring(1) + ": "));
     }
+
+    public boolean getShouldNotifyUpdates() {
+        return config.getBoolean("notify-updates", true);
+    }
 }

@@ -10,10 +10,11 @@ import java.util.List;
 /**
  * Handle the /bet command with smart amount suggestions and configurable chat betting
  */
-public class BetCommand extends BlackjackCommand {
+public class BetCommand extends BaseCommand {
     private final BlackjackPlugin plugin;
     
     public BetCommand(BlackjackPlugin plugin) {
+        super(plugin);
         this.plugin = plugin;
     }
     

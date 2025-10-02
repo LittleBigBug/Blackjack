@@ -11,10 +11,11 @@ import java.util.List;
 /**
  * Handle the /stats command with admin support for checking other players' stats
  */
-public class StatsCommand extends BlackjackCommand {
+public class StatsCommand extends BaseCommand {
     private final BlackjackPlugin plugin;
     
     public StatsCommand(BlackjackPlugin plugin) {
+        super(plugin);
         this.plugin = plugin;
     }
     

@@ -2,6 +2,7 @@ package com.vortex.blackjack.integration;
 
 import com.vortex.blackjack.BlackjackPlugin;
 import com.vortex.blackjack.model.PlayerStats;
+import com.vortex.blackjack.table.BetManager;
 import com.vortex.blackjack.table.BlackjackTable;
 import com.vortex.blackjack.util.GenericUtils;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
@@ -211,8 +212,10 @@ public class BlackjackPlaceholderExpansion extends PlaceholderExpansion {
      * Examples: %blackjack_bet_current%, %blackjack_bet_has_bet%
      */
     private String handleBetPlaceholder(Player player, String param) {
-        Integer currentBet = plugin.getPlayerBets().get(player);
-        Integer persistentBet = plugin.getPlayerPersistentBets().get(player);
+        BetManager betManager = plugin.getBetManager();
+
+        Integer currentBet = betManager.getPlayerBets().get(player);
+        Integer persistentBet = betManager.getPlayerPersistentBets().get(player);
         
         return switch (param) {
             case "current" -> currentBet != null ? String.valueOf(currentBet) : "0";

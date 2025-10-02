@@ -79,3 +79,6 @@ game-settings:
   # true = Refund bets when players leave mid-game (player-friendly)
   # false = Keep bets when players leave mid-game (house advantage)
   refund-on-leave: true
+
+# Notify admins when there is a new update available
+notify-updates: true

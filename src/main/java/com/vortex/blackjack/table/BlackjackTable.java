@@ -171,15 +171,16 @@ public class BlackjackTable {
      * Remove a player from this table with custom reason
      */
     public void removePlayer(Player player, String reason) {
+        BetManager betManager = plugin.getBetManager();
         TableManager tableManager = plugin.getTableManager();
         ConfigManager configManager = plugin.getConfigManager();
 
         synchronized (this) {
             if (!players.contains(player)) return;
-            
+
             // Check if player has a bet that needs to be refunded
             boolean shouldRefundBet = gameInProgress && configManager.shouldRefundOnLeave();
-            Integer betAmount = plugin.getPlayerBets().get(player);
+            Integer betAmount = betManager.getPlayerBets().get(player);
             
             // Cleanup player data
             players.remove(player);
@@ -191,7 +192,7 @@ public class BlackjackTable {
             
             // Refund bet if player leaves mid-game and refunds are enabled
             if (shouldRefundBet && betAmount != null && betAmount > 0) {
-                plugin.getPlayerBets().remove(player);
+                betManager.getPlayerBets().remove(player);
                 if (plugin.getEconomyProvider().add(player.getUniqueId(), BigDecimal.valueOf(betAmount))) {
                     player.sendMessage(configManager.formatMessage("left-table-bet-refunded", "amount", betAmount));
                 } else {
@@ -200,7 +201,7 @@ public class BlackjackTable {
                 }
             } else if (gameInProgress && betAmount != null && betAmount > 0) {
                 // Player left mid-game but refunds are disabled - remove bet without refunding
-                plugin.getPlayerBets().remove(player);
+                betManager.getPlayerBets().remove(player);
                 player.sendMessage(configManager.formatMessage("left-table-bet-forfeit", "amount", betAmount));
             } else {
                 player.sendMessage(configManager.getMessage("left-table"));
@@ -254,6 +255,7 @@ public class BlackjackTable {
      */
     public void startGame() {
         ChatUtils chatUtils = plugin.getChatUtils();
+        BetManager betManager = plugin.getBetManager();
         ConfigManager configManager = plugin.getConfigManager();
 
         synchronized (this) {
@@ -268,7 +270,7 @@ public class BlackjackTable {
             }
             
             // Check if all players have placed bets
-            java.util.Map<org.bukkit.entity.Player, Integer> playerBets = plugin.getPlayerBets();
+            java.util.Map<org.bukkit.entity.Player, Integer> playerBets = betManager.getPlayerBets();
             java.util.List<org.bukkit.entity.Player> playersWithoutBets = new java.util.ArrayList<>();
             
             for (org.bukkit.entity.Player player : players) {
@@ -381,9 +383,7 @@ public class BlackjackTable {
         ConfigManager configManager = plugin.getConfigManager();
 
         synchronized (this) {
-            if (!gameInProgress || !player.equals(currentPlayer)) {
-                return;
-            }
+            if (!gameInProgress || !player.equals(currentPlayer)) return;
             
             // Check if double down is allowed (only on first 2 cards)
             List<Card> hand = playerHands.get(player);
@@ -397,12 +397,12 @@ public class BlackjackTable {
                 player.sendMessage(configManager.getMessage("double-down-already-used"));
                 return;
             }
+
+            BetManager betManager = plugin.getBetManager();
             
             // Check if player has sufficient funds
-            Integer currentBet = plugin.getPlayerBets().get(player);
-            if (currentBet == null) {
-                currentBet = 0;
-            }
+            Integer currentBet = betManager.getPlayerBets().get(player);
+            if (currentBet == null) currentBet = 0;
             
             if (!plugin.getEconomyProvider().hasEnough(player.getUniqueId(), java.math.BigDecimal.valueOf(currentBet))) {
                 player.sendMessage(configManager.getMessage("double-down-insufficient-funds"));
@@ -411,7 +411,7 @@ public class BlackjackTable {
             
             // Double the bet
             plugin.getEconomyProvider().subtract(player.getUniqueId(), java.math.BigDecimal.valueOf(currentBet));
-            plugin.getPlayerBets().put(player, currentBet * 2);
+            betManager.getPlayerBets().put(player, currentBet * 2);
             
             // Mark player as doubled down
             doubleDownPlayers.add(player);
@@ -537,13 +537,14 @@ public class BlackjackTable {
     }
     
     private void handlePayout(Player player, int dealerValue) {
+        BetManager betManager = plugin.getBetManager();
         ConfigManager configManager = plugin.getConfigManager();
 
         List<Card> playerHand = playerHands.get(player);
         BlackjackEngine.GameResult result = gameEngine.determineResult(playerHand, dealerHand);
         
         // Get the player's bet amount
-        Integer betAmount = plugin.getPlayerBets().get(player);
+        Integer betAmount = betManager.getPlayerBets().get(player);
         if (betAmount == null) {
             betAmount = 0;
         }
@@ -590,9 +591,9 @@ public class BlackjackTable {
                 updatePlayerStats(player, null, 0.0); // Push doesn't count as win or loss
                 break;
         }
-        
+
         // Clear the bet
-        plugin.getPlayerBets().remove(player);
+        betManager.getPlayerBets().remove(player);
     }
     
     private void updatePlayerStats(Player player, Boolean won, double winnings) {
@@ -602,19 +603,18 @@ public class BlackjackTable {
             plugin.getPlayerStats().put(player.getUniqueId(), stats);
         }
         
-        if (won == null) {
+        if (won == null)
             // Push - use the increment method
             stats.incrementPushes();
-        } else if (won) {
+        else if (won) {
             // Win - use the increment method which also handles streaks
             stats.incrementWins();
             stats.addWinnings(winnings);
             
             // Check for blackjack
             List<Card> playerHand = playerHands.get(player);
-            if (playerHand.size() == 2 && gameEngine.calculateHandValue(playerHand) == 21) {
+            if (playerHand.size() == 2 && gameEngine.calculateHandValue(playerHand) == 21)
                 stats.incrementBlackjacks();
-            }
         } else {
             // Loss - use the increment method which also handles streaks
             stats.incrementLosses();
@@ -622,20 +622,17 @@ public class BlackjackTable {
             
             // Check for bust
             List<Card> playerHand = playerHands.get(player);
-            if (gameEngine.calculateHandValue(playerHand) > 21) {
+            if (gameEngine.calculateHandValue(playerHand) > 21)
                 stats.incrementBusts();
-            }
         }
     }
     
     // Helper methods
     private int getNextAvailableSeatNumber() {
         Set<Integer> takenSeats = new HashSet<>(playerSeats.values());
-        for (int i = 0; i < plugin.getConfigManager().getMaxPlayers(); i++) {
-            if (!takenSeats.contains(i)) {
+        for (int i = 0; i < plugin.getConfigManager().getMaxPlayers(); i++)
+            if (!takenSeats.contains(i))
                 return i;
-            }
-        }
         return -1;
     }
 
@@ -670,13 +667,12 @@ public class BlackjackTable {
         // Only send if it's been more than 1.5 seconds since last message, OR if it's a critical message
         if (isCriticalMessage || lastTime == null || currentTime - lastTime > 1500) {
             // Check if message is already formatted (contains color codes or special characters)
-            if (message.contains("§") || message.contains("&") || isCriticalMessage) {
+            if (message.contains("§") || message.contains("&") || isCriticalMessage)
                 // Send directly - already formatted
                 player.sendMessage(message);
-            } else {
+            else
                 // Wrap in table broadcast format
                 player.sendMessage(this.plugin.getConfigManager().formatMessage("table-message-broadcast", "message", message));
-            }
             lastMessageTime.put(playerId, currentTime);
         }
     }
@@ -685,9 +681,8 @@ public class BlackjackTable {
         // Send to all players at the table with spam reduction
         for (Map.Entry<Player, Integer> entry : playerSeats.entrySet()) {
             Player player = entry.getKey();
-            if (player != null && player.isOnline()) {
+            if (player != null && player.isOnline())
                 sendPlayerMessage(player, message);
-            }
         }
     }
     
@@ -716,15 +711,14 @@ public class BlackjackTable {
     
     private String formatHandValue(int value) {
         ChatColor valueColor;
-        if (value == 21) {
+        if (value == 21)
             valueColor = ChatColor.GOLD;          // 21 = Gold
-        } else if (value > 21) {
+        else if (value > 21)
             valueColor = ChatColor.RED;           // Bust = Red  
-        } else if (value >= 18) {
+        else if (value >= 18)
             valueColor = ChatColor.GREEN;         // Good hand = Green
-        } else {
+        else
             valueColor = ChatColor.YELLOW;        // Normal = Yellow
-        }
         
         return "" + ChatColor.BOLD + valueColor + "Value: " + value + ChatColor.RESET;
     }
@@ -736,23 +730,20 @@ public class BlackjackTable {
     private void playCardSound(Location loc) {
         ConfigManager configManager = plugin.getConfigManager();
 
-        if (configManager.areSoundsEnabled()) {
+        if (configManager.areSoundsEnabled())
             loc.getWorld().playSound(loc, configManager.getCardDealSound(), 
                 configManager.getCardDealVolume(), configManager.getCardDealPitch());
-        }
     }
     
     private void playWinSound(Player player) {
         ConfigManager configManager = plugin.getConfigManager();
 
-        if (configManager.areSoundsEnabled()) {
+        if (configManager.areSoundsEnabled())
             player.playSound(player.getLocation(), configManager.getWinSound(), 1.0F, 1.0F);
-        }
         
-        if (configManager.areParticlesEnabled()) {
+        if (configManager.areParticlesEnabled())
             player.spawnParticle(configManager.getWinParticle(), 
                 player.getLocation().add(0.0, 2.0, 0.0), 20, 0.5, 0.5, 0.5);
-        }
     }
     
     private void playLoseSound(Player player) {
@@ -1071,25 +1062,19 @@ public class BlackjackTable {
 
     private void clearAllCardDisplays() {
         // Clear displays for all players (not just current players list)
-        for (List<ItemDisplay> cardDisplays : playerCardDisplays.values()) {
-            if (cardDisplays != null) {
+        for (List<ItemDisplay> cardDisplays : playerCardDisplays.values())
+            if (cardDisplays != null)
                 cardDisplays.forEach(display -> {
-                    if (display != null && !display.isDead()) {
+                    if (display != null && !display.isDead())
                         display.remove();
-                    }
                 });
-            }
-        }
 
-        for (List<ItemDisplay> dealerDisplays : playerDealerDisplays.values()) {
-            if (dealerDisplays != null) {
+        for (List<ItemDisplay> dealerDisplays : playerDealerDisplays.values())
+            if (dealerDisplays != null)
                 dealerDisplays.forEach(display -> {
-                    if (display != null && !display.isDead()) {
+                    if (display != null && !display.isDead())
                         display.remove();
-                    }
                 });
-            }
-        }
 
         playerCardDisplays.clear();
         playerDealerDisplays.clear();
@@ -1180,8 +1165,8 @@ public class BlackjackTable {
         if (gameInProgress || players.isEmpty()) return false;
         
         // Check if all players have bets
-        java.util.Map<org.bukkit.entity.Player, Integer> playerBets = plugin.getPlayerBets();
-        for (org.bukkit.entity.Player player : players) {
+        java.util.Map<Player, Integer> playerBets = this.plugin.getBetManager().getPlayerBets();
+        for (Player player : players) {
             Integer bet = playerBets.get(player);
             if (bet == null || bet <= 0) return false;
         }

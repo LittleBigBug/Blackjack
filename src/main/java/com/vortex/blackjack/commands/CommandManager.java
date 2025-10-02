@@ -24,7 +24,7 @@ public class CommandManager {
         }
     }
     
-    private void registerCommand(String name, BlackjackCommand executor) {
+    private void registerCommand(String name, BaseCommand executor) {
         PluginCommand cmd = plugin.getCommand(name);
         if (cmd != null) {
             cmd.setExecutor(executor);
