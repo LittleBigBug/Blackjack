@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Represents a single blackjack table with game logic
  */
 public class BlackjackTable {
+
     private final BlackjackPlugin plugin;
     private final BlackjackEngine gameEngine;
     private final Location centerLoc;
@@ -619,20 +620,38 @@ public class BlackjackTable {
         return -1;
     }
 
-    private Location getTableLocation() {
-        Location loc = this.centerLoc.clone();
-        loc.setPitch(0);
+    public float getYaw() {
+        float locYaw = this.centerLoc.getYaw() / 90;
+        return Math.round(locYaw) * 90;
+    }
 
-        float locYaw = loc.getYaw() / 90;
-        loc.setYaw(Math.round(locYaw) * 90);
+    public Location getTableLocation() {
+        Location loc = this.centerLoc.clone();
+
+        loc.setPitch(0);
+        loc.setYaw(this.getYaw());
 
         return loc;
     }
 
-    private Location getSeatLocation(int seatNumber) {
+    private Location addRelativeOffset(Location location, float offsetX, float offsetY, float offsetZ) {
+        double yawRadians = Math.toRadians(location.getYaw());
+        double xOffset = -Math.sin(yawRadians) * offsetZ + Math.cos(yawRadians) * offsetX;
+        double zOffset = Math.cos(yawRadians) * offsetZ + Math.sin(yawRadians) * offsetX;
+
+        return location.clone().add(xOffset, offsetY, zOffset);
+    }
+
+    private Location addRelativeOffset(Location location, Vector3f offset) {
+        return this.addRelativeOffset(location, offset.x, offset.y, offset.z);
+    }
+
+    public Location getSeatLocation(int seatNumber) {
         Vector3f offset = this.getSeatOffset(seatNumber);
         if (offset == null) return null;
-        return this.centerLoc.clone().add(offset.x, offset.y, offset.z);
+
+        Location tableLoc = this.getTableLocation();
+        return this.addRelativeOffset(tableLoc, offset);
     }
     
     private void sendPlayerMessage(Player player, String message) {
@@ -761,12 +780,13 @@ public class BlackjackTable {
     }
 
     public Vector3f getSeatOffset(int seatNumber) {
+        float yOffset = 0.5f;
         return switch (seatNumber) {
-            case 0 -> new Vector3f(2.0f, 0.0f, 0.0f);
-            case 1 -> new Vector3f(1.0f, 0.0f, 1.2f);
-            case 2 -> new Vector3f(0.0f, 0.0f, 1.5f);
-            case 3 -> new Vector3f(-1.0f, 0.0f, 1.2f);
-            case 4 -> new Vector3f(-2.0f, 0.0f, 0.0f);
+            case 0 -> new Vector3f(2.0f, yOffset, 0.0f);
+            case 1 -> new Vector3f(1.0f, yOffset, 1.2f);
+            case 2 -> new Vector3f(0.0f, yOffset, 1.5f);
+            case 3 -> new Vector3f(-1.0f, yOffset, 1.2f);
+            case 4 -> new Vector3f(-2.0f, yOffset, 0.0f);
             default -> null;
         };
     }
@@ -807,8 +827,9 @@ public class BlackjackTable {
 
         float xRotation = (float) (Math.PI / 2);
         float zRotation = switch (seatNumber) {
-            case 1, 3 -> (float) Math.PI;
-            case 0, 2 -> (float) (Math.PI / 2);
+            case 2 -> (float) Math.PI;
+            case 1, 3 -> (float) Math.toRadians(26);
+            case 0, 4 -> (float) (Math.PI / 2);
             default -> 0.0f;
         };
 
@@ -825,7 +846,7 @@ public class BlackjackTable {
 
         if (world == null) return null;
 
-        Location displayLoc = new Location(world, loc.getBlockX() + 0.5, loc.getBlockY(), loc.getBlockZ() + 0.5, 0.0f, 0.0f);
+        Location displayLoc = this.addRelativeOffset(loc, 0.5f, -0.5f, 0.5f);
         ItemDisplay display = world.spawn(displayLoc, ItemDisplay.class);
 
         ItemStack cardItem = new ItemStack(Material.CLOCK);
@@ -877,7 +898,7 @@ public class BlackjackTable {
     }
 
     private ItemDisplay createSeatDisplay(int seatNumber) {
-        Vector3f offset = getSeatOffset(seatNumber);
+        Vector3f offset = this.getSeatOffset(seatNumber);
         if (offset == null) return null;
 
         Location tableLocation = this.getTableLocation();
@@ -902,12 +923,31 @@ public class BlackjackTable {
             float radians = (float) Math.toRadians(yaw);
 
             d.setTransformation(new Transformation(
-                    offset.add(new Vector3f(0, 0.5f, 0)),
+                    offset,
                     new AxisAngle4f(),
                     new Vector3f(1f, 1f, 1f),
                     new AxisAngle4f(radians, 0f, 1f, 0f)
             ));
             d.setPersistent(false);
+        });
+    }
+
+    private ArmorStand createSeatEntity(int seatNumber) {
+        Location seatLocation = this.getSeatLocation(seatNumber);
+        if (seatLocation == null) return null;
+
+        World world = seatLocation.getWorld();
+        if (world == null) return null;
+
+        Location loc = seatLocation.clone().add(0.0, -1.6f, 0.0);
+
+        return world.spawn(loc, ArmorStand.class, e -> {
+            e.setSilent(true);
+            e.setGravity(false);
+            e.setPersistent(false);
+            e.setInvulnerable(true);
+            e.setTicksLived(Integer.MAX_VALUE);
+            e.setInvisible(true);
         });
     }
 
@@ -921,25 +961,6 @@ public class BlackjackTable {
             in.setInteractionHeight(1.5f);
             in.setResponsive(true);
             in.setPersistent(false);
-        });
-    }
-
-    private ArmorStand createSeatEntity(int seatNumber) {
-        Location seatLocation = this.getSeatLocation(seatNumber);
-        if (seatLocation == null) return null;
-
-        World world = seatLocation.getWorld();
-        if (world == null) return null;
-
-        Location loc = seatLocation.clone().add(0.0, -1.1f, 0.0);
-
-        return world.spawn(loc, ArmorStand.class, e -> {
-            e.setSilent(true);
-            e.setGravity(false);
-            e.setPersistent(false);
-            e.setInvulnerable(true);
-            e.setTicksLived(Integer.MAX_VALUE);
-            e.setInvisible(true);
         });
     }
 
@@ -986,21 +1007,26 @@ public class BlackjackTable {
 
     private List<ItemDisplay> updateCardDisplays(List<Card> hand, int seatNumber, boolean isDealer, float heightOffset) {
         List<ItemDisplay> displays = new ArrayList<>();
-        Location baseDisplayLoc = getSeatLocation(seatNumber);
+
+        Location seatLoc = this.getSeatLocation(seatNumber);
+        if (seatLoc == null) return displays;
 
         int size = hand.size();
 
         for (int i = 0; i < size; i++) {
             Card card = hand.get(i);
-            Location spawnLoc = baseDisplayLoc.clone();
             Card displayCard = isDealer && gameInProgress && i > 0 ? null : card;
-            ItemDisplay display = createCardDisplay(spawnLoc, displayCard, isDealer, seatNumber);
+
+            ItemDisplay display = this.createCardDisplay(seatLoc, displayCard, isDealer, seatNumber);
+            if (display == null) continue;
+
             Vector3f translation = this.getCardTranslation(i, seatNumber, size, isDealer).add(0, heightOffset, 0);
             Transformation currentTransform = display.getTransformation();
             Transformation newTransform = new Transformation(
                     translation, currentTransform.getLeftRotation(), currentTransform.getScale(), currentTransform.getRightRotation()
             );
             display.setTransformation(newTransform);
+
             displays.add(display);
         }
 
@@ -1051,7 +1077,7 @@ public class BlackjackTable {
             double dealerHeight = configManager.getDealerCardHeight();
 
             if (!dealerHand.isEmpty()) {
-                Card dealerVisibleCard = dealerHand.get(0);
+                Card dealerVisibleCard = dealerHand.getFirst();
                 // More compact dealer card message
                 player.sendMessage(configManager.formatMessage("dealer-shows",
                         "card", formatCard(dealerVisibleCard),
@@ -1157,7 +1183,7 @@ public class BlackjackTable {
         // Only show first card during game
         if (gameInProgress && dealerHand.size() >= 2) {
             List<Card> visibleCards = new ArrayList<>();
-            visibleCards.add(dealerHand.get(0));
+            visibleCards.add(dealerHand.getFirst());
             return gameEngine.calculateHandValue(visibleCards);
         }
         return gameEngine.calculateHandValue(dealerHand);
@@ -1215,16 +1241,14 @@ public class BlackjackTable {
         List<Player> playersToRemove = new ArrayList<>();
         for (Player player : new ArrayList<>(players)) {
             Long gameEndTime = gameEndTimes.get(player);
-            if (gameEndTime != null && (currentTime - gameEndTime) >= timeoutMs) {
+            if (gameEndTime != null && (currentTime - gameEndTime) >= timeoutMs)
                 playersToRemove.add(player);
-            }
         }
         
         // Remove inactive players
         for (Player player : playersToRemove) {
-            if (player.isOnline()) {
+            if (player.isOnline())
                 player.sendMessage(configManager.getMessage("auto-left-inactive"));
-            }
             removePlayer(player, "was removed due to inactivity");
             gameEndTimes.remove(player);
         }

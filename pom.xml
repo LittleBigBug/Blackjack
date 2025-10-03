@@ -116,6 +116,7 @@
                     <include>config.yml</include>
                     <include>messages.yml</include>
                     <include>chips.yml</include>
+                    <include>data/tables.yml</include>
                 </includes>
             </resource>
         </resources>

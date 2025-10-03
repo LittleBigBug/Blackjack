@@ -11,7 +11,7 @@ import com.vortex.blackjack.integration.BlackjackPlaceholderExpansion;
 import com.vortex.blackjack.listener.ChatListener;
 import com.vortex.blackjack.listener.InteractListener;
 import com.vortex.blackjack.listener.PlayerListener;
-import com.vortex.blackjack.listener.SteerVehicleListener;
+import com.vortex.blackjack.listener.PlayerInputPacketListener;
 import com.vortex.blackjack.model.PlayerStats;
 import com.vortex.blackjack.table.BetManager;
 import com.vortex.blackjack.table.TableManager;
@@ -57,8 +57,9 @@ public class BlackjackPlugin extends JavaPlugin  {
     // Files
     private File statsFile;
 
-    private FileConfiguration chipsConfig;
-    private FileConfiguration messagesConfig;
+    private Config chipsConfig;
+    private Config messagesConfig;
+    private Config tablesData;
 
     @Override
     public void onLoad() {
@@ -68,20 +69,11 @@ public class BlackjackPlugin extends JavaPlugin  {
 
     @Override
     public void onEnable() {
-        // Initialize configuration
         saveDefaultConfig();
 
-        // Load chips configuration
-        File chipsFile = new File(getDataFolder(), "chips.yml");
-        if (!chipsFile.exists())
-            saveResource("chips.yml", false);
-        this.chipsConfig = YamlConfiguration.loadConfiguration(chipsFile);
-        
-        // Load messages configuration
-        File messagesFile = new File(getDataFolder(), "messages.yml");
-        if (!messagesFile.exists())
-            saveResource("messages.yml", false);
-        this.messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
+        this.chipsConfig = new Config(this, "chips.yml");
+        this.messagesConfig = new Config(this, "messages.yml");
+        this.tablesData = new Config(this, "data/tables.yml");
 
         configManager = new ConfigManager(this);
         
@@ -107,9 +99,8 @@ public class BlackjackPlugin extends JavaPlugin  {
             placeholderExpansion = new BlackjackPlaceholderExpansion(this);
             placeholderExpansion.register();
             getLogger().info("PlaceholderAPI found! Extensive placeholder support enabled.");
-        } else {
+        } else
             getLogger().info("PlaceholderAPI not found. Placeholder support disabled.");
-        }
         
         // Initialize files
         statsFile = new File(getDataFolder(), "stats.yml");
@@ -120,7 +111,7 @@ public class BlackjackPlugin extends JavaPlugin  {
 
         EventManager eventManager = packetApi.getEventManager();
 
-        eventManager.registerListener(new SteerVehicleListener(this));
+        eventManager.registerListener(new PlayerInputPacketListener(this));
 
         // Register Bukkit events
         getServer().getPluginManager().registerEvents(new ChatListener(this), this);
@@ -223,12 +214,9 @@ public class BlackjackPlugin extends JavaPlugin  {
     public AsyncUtils getAsyncUtils() { return asyncUtils; }
     public BetManager getBetManager() { return betManager; }
 
-    public FileConfiguration getChipsConfig() { return chipsConfig; }
-    public FileConfiguration getMessagesConfig() {
-        if (messagesConfig == null)
-            return this.getConfig();
-        return messagesConfig;
-    }
+    public Config getChipsConfig() { return chipsConfig; }
+    public Config getMessagesConfig() { return messagesConfig; }
+    public Config getTablesData() { return tablesData; }
 
     // Player data getters
     public Map<UUID, PlayerStats> getPlayerStats() { return playerStats; }
