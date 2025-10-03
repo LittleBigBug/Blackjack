@@ -21,11 +21,7 @@ public class Config extends YamlConfiguration {
         if (!file.exists())
             plugin.saveResource(cfgFile, false);
 
-        try {
-            this.load(file);
-        } catch (Exception ex) {
-            Bukkit.getLogger().log(Level.SEVERE, "Cannot load " + file, ex);
-        }
+        this.reload();
     }
 
     public File getFile() {
@@ -37,6 +33,14 @@ public class Config extends YamlConfiguration {
             this.save(file);
         } catch (Exception ex) {
             Bukkit.getLogger().log(Level.SEVERE, "Cannot save " + file, ex);
+        }
+    }
+
+    public void reload() {
+        try {
+            this.load(file);
+        } catch (Exception ex) {
+            Bukkit.getLogger().log(Level.SEVERE, "Cannot load " + file, ex);
         }
     }
 

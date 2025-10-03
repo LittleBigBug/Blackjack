@@ -5,8 +5,12 @@ import com.github.retrooper.packetevents.event.simple.PacketPlayReceiveEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerInput;
 import com.vortex.blackjack.BlackjackPlugin;
+import com.vortex.blackjack.gui.bet.BetGUI;
 import com.vortex.blackjack.table.BlackjackTable;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.jetbrains.annotations.NotNull;
 
 public class PlayerInputPacketListener extends SimplePacketListenerAbstract {
@@ -24,6 +28,40 @@ public class PlayerInputPacketListener extends SimplePacketListenerAbstract {
         if (type != PacketType.Play.Client.PLAYER_INPUT || !(event.getPlayer() instanceof Player player)) return;
 
         WrapperPlayClientPlayerInput wrapper = new WrapperPlayClientPlayerInput(event);
+
+        if (wrapper.isJump()) {
+            BlackjackTable table = this.plugin.getTableManager().getPlayerTable(player);
+            if (table == null) return;
+
+            this.plugin.getServer().getScheduler().runTask(this.plugin, () ->
+                new BetGUI(this.plugin, player)
+                        .onClose(e -> {
+                            if (!table.canStartGame()) return;
+
+                            Inventory inventory = e.getInventory();
+                            InventoryHolder holder = inventory.getHolder();
+                            if (!(holder instanceof BetGUI gui) || !gui.hasMadeBet()) return;
+                            // a little bit hacky
+                            Bukkit.dispatchCommand(player, "blackjack start");
+                        })
+                        .open()
+            );
+
+            return;
+        }
+
+        if (wrapper.isForward()) {
+            BlackjackTable table = this.plugin.getTableManager().getPlayerTable(player);
+            if (table == null) return;
+
+            this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
+                if (table.isGameInProgress()) return;
+                Bukkit.dispatchCommand(player, "blackjack start");
+            });
+
+            return;
+        }
+
         if (!wrapper.isShift()) return;
 
         BlackjackTable table = this.plugin.getTableManager().getPlayerTable(player);

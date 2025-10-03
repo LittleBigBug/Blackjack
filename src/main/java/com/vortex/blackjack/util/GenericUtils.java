@@ -6,7 +6,9 @@ import com.vortex.blackjack.model.PlayerStats;
 import com.vortex.blackjack.table.BlackjackTable;
 import com.vortex.blackjack.table.TableManager;
 import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
+import net.md_5.bungee.api.chat.hover.content.Text;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -83,7 +85,10 @@ public class GenericUtils {
     public static TextComponent createClickableButton(String text, String command, String hoverText) {
         TextComponent button = new TextComponent(org.bukkit.ChatColor.translateAlternateColorCodes('&', text));
         button.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, command));
-        // Note: Hover events removed due to API compatibility
+
+        TextComponent hover = new TextComponent(org.bukkit.ChatColor.translateAlternateColorCodes('&', hoverText));
+        button.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text(hover)));
+
         return button;
     }
     

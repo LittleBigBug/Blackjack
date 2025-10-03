@@ -2,6 +2,7 @@ package com.vortex.blackjack.gui.bet;
 
 import com.vortex.blackjack.BlackjackPlugin;
 import com.vortex.blackjack.util.GenericUtils;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
@@ -31,7 +32,7 @@ public class ChipItem extends ItemStack {
         if (priceStr != null) this.price = (int) Math.floor(Float.parseFloat(priceStr));
         else this.price = 0;
 
-        this.setData();
+        this.setData(chipCfg);
     }
     public ChipItem(BlackjackPlugin plugin, String name, int price) {
         super(Material.PLAYER_HEAD, 1);
@@ -41,8 +42,15 @@ public class ChipItem extends ItemStack {
         this.price = price;
     }
 
-    private void setData() {
+    private void setData(ConfigurationSection chipCfg) {
         if (!(this.getItemMeta() instanceof SkullMeta meta)) return;
+
+        String displayNameStr = chipCfg.getString("display-name");
+        if (displayNameStr != null) meta.setDisplayName(displayNameStr);
+        else {
+            if (this.isAllIn()) meta.setDisplayName(ChatColor.RED + "" + ChatColor.BOLD + "ALL IN");
+            else meta.setDisplayName(ChatColor.GREEN + "Bet " + ChatColor.WHITE + "$" + this.price);
+        }
 
         PersistentDataContainer container = meta.getPersistentDataContainer();
 

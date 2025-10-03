@@ -51,14 +51,14 @@ public class BetGUI extends BaseGUI {
     }
 
     @Override
-    public void handleClick(InventoryClickEvent event) {
+    public void onClick(InventoryClickEvent event) {
         ItemStack item = event.getCurrentItem();
-        this.plugin.getLogger().info("Clicked item: " + item + " (" + item.getType() + ") " + (item instanceof ChipItem ? "YES" : "NO"));
+        if (item == null) return;
 
-        ItemMeta imeta = item.getItemMeta();
-        if (imeta == null) return;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
 
-        PersistentDataContainer data = imeta.getPersistentDataContainer();
+        PersistentDataContainer data = meta.getPersistentDataContainer();
         if (!data.has(this.plugin.getChipPriceKey())) return;
 
         BlackjackTable table = this.plugin.getTableManager().getPlayerTable(this.player);
@@ -78,9 +78,13 @@ public class BetGUI extends BaseGUI {
     }
 
     @Override
-    public void handleClose(InventoryCloseEvent event) {
+    public void onClose(InventoryCloseEvent event) {
         if (!this.madeBet)
             this.player.sendMessage(plugin.getConfigManager().getMessage("bet-gui-closed"));
+    }
+
+    public boolean hasMadeBet() {
+        return this.madeBet;
     }
 
 }

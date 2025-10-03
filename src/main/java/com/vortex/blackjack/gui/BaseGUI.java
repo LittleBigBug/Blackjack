@@ -8,11 +8,15 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
+
 public abstract class BaseGUI implements InventoryHolder {
 
     protected final BlackjackPlugin plugin;
     protected final Player player;
     protected final Inventory inventory;
+
+    protected ArrayList<OnClose> onCloseListeners = new ArrayList<>();
 
     public BaseGUI(BlackjackPlugin plugin, Player player, String title, int size) {
         this.plugin = plugin;
@@ -21,8 +25,23 @@ public abstract class BaseGUI implements InventoryHolder {
     }
 
     public abstract void update();
-    public abstract void handleClick(InventoryClickEvent event);
-    public abstract void handleClose(InventoryCloseEvent event);
+
+    protected abstract void onClick(InventoryClickEvent event);
+    protected abstract void onClose(InventoryCloseEvent event);
+
+    public void handleClick(InventoryClickEvent event) {
+        this.onClick(event);
+    }
+
+    public void handleClose(InventoryCloseEvent event) {
+        this.onCloseListeners.forEach(listener -> listener.onClose(event));
+        this.onClose(event);
+    }
+
+    public BaseGUI onClose(OnClose listener) {
+        this.onCloseListeners.add(listener);
+        return this;
+    }
 
     public BaseGUI open() {
         this.update();

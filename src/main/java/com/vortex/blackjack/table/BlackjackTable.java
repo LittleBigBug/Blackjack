@@ -306,7 +306,10 @@ public class BlackjackTable {
 
             // Start first player's turn
             currentPlayer = players.get(0);
-            broadcastTableMessage(configManager.formatMessage("game-started", "player", currentPlayer.getName()));
+            broadcastTableMessage(
+                    configManager.formatMessage("game-started", "player", currentPlayer.getName()),
+                    true
+            );
 
             // Send interactive turn message (doubledown available on first turn)
             chatUtils.sendGameActionBar(currentPlayer, true);
@@ -359,9 +362,13 @@ public class BlackjackTable {
             
             finishedPlayers.add(player);
             int value = gameEngine.calculateHandValue(playerHands.get(player));
-            broadcastTableMessage(this.plugin.getConfigManager().formatMessage("player-stands",
-                "player", player.getName(), 
-                "value", formatHandValue(value)));
+            broadcastTableMessage(
+                    this.plugin.getConfigManager().formatMessage("player-stands",
+                            "player", player.getName(),
+                            "value", formatHandValue(value)
+                    ),
+                    true
+            );
             nextTurn();
         }
     }
@@ -414,18 +421,22 @@ public class BlackjackTable {
             updatePlayerCardDisplays(player, hand);
             
             int value = gameEngine.calculateHandValue(hand);
-            broadcastTableMessage(configManager.formatMessage("player-doubles-down", 
-                "player", player.getName(), 
-                "value", formatHandValue(value)));
+            broadcastTableMessage(
+                    configManager.formatMessage("player-doubles-down",
+                            "player", player.getName(),
+                            "value", formatHandValue(value)
+                    ),
+                    true
+            );
             
             // Player is automatically done after double down
             finishedPlayers.add(player);
             
             if (gameEngine.isBusted(hand)) {
-                broadcastTableMessage(configManager.formatMessage("player-busts", "player", player.getName()));
+                broadcastTableMessage(configManager.formatMessage("player-busts", "player", player.getName()), true);
                 playLoseSound(player);
             } else if (value == 21) {
-                broadcastTableMessage(configManager.formatMessage("player-hits-21", "player", player.getName()));
+                broadcastTableMessage(configManager.formatMessage("player-hits-21", "player", player.getName()), true);
                 playWinSound(player);
             }
             
@@ -502,7 +513,7 @@ public class BlackjackTable {
                 
                 // Show game ended message and buttons after payouts
                 if (!players.isEmpty()) {
-                    broadcastTableMessage(configManager.getMessage("game-ended"));
+                    broadcastTableMessage(configManager.getMessage("game-ended"), true);
                     sendGameEndButtons();
                     startAutoLeaveTimer();
                 }
@@ -568,9 +579,13 @@ public class BlackjackTable {
             case PUSH:
                 // Push - return bet to player
                 plugin.getEconomyProvider().add(player.getUniqueId(), java.math.BigDecimal.valueOf(betAmount));
-                broadcastTableMessage(configManager.formatMessage("player-push", 
-                    "player", player.getName(), 
-                    "amount", String.valueOf(betAmount)));
+                broadcastTableMessage(
+                        configManager.formatMessage("player-push",
+                                "player", player.getName(),
+                                "amount", String.valueOf(betAmount)
+                        ),
+                        true
+                );
                 player.playSound(player.getLocation(), configManager.getPushSound(), 1.0F, 1.0F);
                 updatePlayerStats(player, null, 0.0); // Push doesn't count as win or loss
                 break;
@@ -659,7 +674,7 @@ public class BlackjackTable {
         return this.addRelativeOffset(tableLoc, offset);
     }
     
-    private void sendPlayerMessage(Player player, String message) {
+    private void sendPlayerMessage(Player player, String message, boolean spacer) {
         // Always use compact mode - no config needed
         UUID playerId = player.getUniqueId();
         long currentTime = System.currentTimeMillis();
@@ -670,7 +685,9 @@ public class BlackjackTable {
                                   message.contains("loses") || message.contains("PUSH") ||
                                   message.contains("DOUBLES DOWN") ||
                                   message.startsWith("Dealer: ") && message.contains("|");
-        
+
+        if (spacer) player.sendMessage(" ");
+
         // Only send if it's been more than 1.5 seconds since last message, OR if it's a critical message
         if (isCriticalMessage || lastTime == null || currentTime - lastTime > 1500) {
             // Check if message is already formatted (contains color codes or special characters)
@@ -683,13 +700,17 @@ public class BlackjackTable {
             lastMessageTime.put(playerId, currentTime);
         }
     }
-    
+
     private void broadcastTableMessage(String message) {
+        this.broadcastTableMessage(message, false);
+    }
+
+    private void broadcastTableMessage(String message, boolean spacer) {
         // Send to all players at the table with spam reduction
         for (Map.Entry<Player, Integer> entry : playerSeats.entrySet()) {
             Player player = entry.getKey();
             if (player != null && player.isOnline())
-                sendPlayerMessage(player, message);
+                sendPlayerMessage(player, message, spacer);
         }
     }
     
@@ -811,22 +832,23 @@ public class BlackjackTable {
         float fScale = plugin.getConfigManager().getCardScale();
         Vector3f offset = new Vector3f(0.0f, 0.0f, 0.0f);
         Vector3f scale = new Vector3f(fScale, fScale, fScale);
-        float yawRotation = (float) switch (seatNumber) {
-            case 0 -> (-Math.PI / 2); // 270
-            case 1 -> Math.toRadians(206);
-            case 2 -> Math.PI; // 180
-            case 3 -> Math.toRadians(154);
-            case 4 -> (Math.PI / 2); // 90
-            default -> 0;
-        };
 
-        if (isDealer)
+        if (isDealer) {
+            float yRotation = (float) switch (seatNumber) {
+                case 0 -> (-Math.PI / 2); // 270
+                case 1 -> Math.toRadians(206);
+                case 2 -> Math.PI; // 180
+                case 3 -> Math.toRadians(154);
+                case 4 -> (Math.PI / 2); // 90
+                default -> 0;
+            };
             return new Transformation(
                     offset,
-                    new AxisAngle4f(yawRotation, 0.0f, 1.0f, 0.0f),
+                    new AxisAngle4f(yRotation, 0.0f, 1.0f, 0.0f),
                     scale,
                     new AxisAngle4f((float) Math.toRadians(15.0), 1.0f, 0.0f, 0.0f)
             );
+        }
 
         float xRotation = (float) (Math.PI / 2);
         float zRotation = (float) switch (seatNumber) {
@@ -1058,6 +1080,7 @@ public class BlackjackTable {
 
         int handValue = gameEngine.calculateHandValue(hand);
         // Send colorized hand info - more compact and readable
+        player.sendMessage(" ");
         player.sendMessage(configManager.formatMessage("hand-display",
                 "hand", formatHand(hand),
                 "hand_value", formatHandValue(handValue)));
@@ -1083,6 +1106,7 @@ public class BlackjackTable {
             if (!dealerHand.isEmpty()) {
                 Card dealerVisibleCard = dealerHand.getFirst();
                 // More compact dealer card message
+                player.sendMessage(" ");
                 player.sendMessage(configManager.formatMessage("dealer-shows",
                         "card", formatCard(dealerVisibleCard),
                         "value", dealerVisibleCard.getValue()));
@@ -1148,7 +1172,7 @@ public class BlackjackTable {
     // Getters
     public Location getCenterLocation() { return centerLoc; }
     public List<Player> getPlayers() { return new ArrayList<>(players); }
-    public boolean isGameInProgress() { return gameInProgress; }
+    public boolean isGameInProgress() { return gameInProgress || !readyToPlay; }
     
     // PlaceholderAPI support methods
     public int getPlayerCount() { return players.size(); }

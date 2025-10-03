@@ -128,14 +128,22 @@ public class ChatUtils {
         ConfigManager configManager = plugin.getConfigManager();
 
         TextComponent playAgainButton = GenericUtils.createClickableButton(
-            configManager.getButtonText("play-again"), 
-            configManager.getButtonCommand("play-again"), 
-            configManager.getButtonHover("play-again"));
+                configManager.getButtonText("play-again"),
+                configManager.getButtonCommand("play-again"),
+                configManager.getButtonHover("play-again")
+        );
         
         TextComponent leaveButton = GenericUtils.createClickableButton(
-            configManager.getButtonText("leave-table"), 
-            configManager.getButtonCommand("leave-table"), 
-            configManager.getButtonHover("leave-table"));
+                configManager.getButtonText("leave-table"),
+                configManager.getButtonCommand("leave-table"),
+                configManager.getButtonHover("leave-table")
+        );
+
+        TextComponent changeBetButton = GenericUtils.createClickableButton(
+                configManager.getButtonText("change-bet"),
+                configManager.getButtonCommand("change-bet"),
+                configManager.getButtonHover("change-bet")
+        );
         
         TextComponent separator = new TextComponent(configManager.getGameActionSeparator());
         
@@ -143,8 +151,11 @@ public class ChatUtils {
         TextComponent fullMessage = new TextComponent(configManager.getPostGamePrompt());
         fullMessage.addExtra(playAgainButton);
         fullMessage.addExtra(separator);
+        fullMessage.addExtra(changeBetButton);
+        fullMessage.addExtra(separator);
         fullMessage.addExtra(leaveButton);
-        
+
+        player.sendMessage(" ");
         player.spigot().sendMessage(fullMessage);
     }
 }

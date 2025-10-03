@@ -144,35 +144,40 @@ game-error-all-must-bet: "&cAll players must place bets before starting!"
 buttons:
   # Game action buttons
   hit:
-    text: "&a&l[HIT]"
-    command: "/hit"
-    hover: "&eClick to take another card"
+    text: '&a&l"HIT"'
+    command: "/blackjack hit"
+    hover: "&eType 'hit' or 'hit me' in chat or click this to take another card"
   
   stand:
-    text: "&c&l[STAND]"
-    command: "/stand"
-    hover: "&eClick to end your turn"
+    text: '&c&l"STAND"'
+    command: "/blackjack stand"
+    hover: "&eType 'stand' in chat or click this to keep your cards and end your turn"
   
   double-down:
-    text: "&6&l[DOUBLE DOWN]"
+    text: '&6&l"DOUBLE DOWN"'
     command: "/doubledown"
-    hover: "&eClick to double your bet and take one card"
+    hover: "&eType 'double down' in chat or click this to double your bet and take one card. You can also just type 'double'"
   
   # Post-game buttons
   play-again:
-    text: "&a&l[Play Again]"
-    command: "/start"
-    hover: "&eClick to start a new game"
-  
+    text: "&a&l[Press W to Play Again]"
+    command: "/blackjack start"
+    hover: "&ePress W or click this to start a new game"
+
+  change-bet:
+    text: "&e&l[Jump to Change Bet]"
+    command: "/blackjack bet"
+    hover: "&eJump or click this to change your bet. You can also type '/bj bet <amount>'"
+
   leave-table:
-    text: "&c&l[Leave Table]"
-    command: "/leave"
-    hover: "&eClick to leave the table"
-  
+    text: "&c&l[Crouch to Leave Table]"
+    command: "/blackjack leave"
+    hover: "&eCrouch or click this to leave the table"
+
   # Betting buttons
   custom-bet:
     text: "&b&l[CUSTOM BET]"
-    command: "/bet "
+    command: "/blackjack bet "
     hover: "&eClick to enter custom amount"
   
   # Bet amount colors
@@ -182,7 +187,7 @@ buttons:
   huge-bet-color: "&d"     # Pink for huge bets
 
 # Game action prompts
-game-action-prompt: "&7Your turn: "
+game-action-prompt: "&7Your turn, type one of these in chat: "
 game-action-separator: "&7 | "
 post-game-prompt: "&7Choose: "
 

@@ -2,6 +2,7 @@ package com.vortex.blackjack.commands.sub;
 
 import com.vortex.blackjack.BlackjackPlugin;
 import com.vortex.blackjack.config.ConfigManager;
+import com.vortex.blackjack.gui.bet.BetGUI;
 import com.vortex.blackjack.table.TableManager;
 import com.vortex.blackjack.util.GenericUtils;
 import org.bukkit.command.CommandSender;
@@ -27,7 +28,7 @@ public class Bet extends SubCommand {
         }
 
         if (args.length < 2) {
-            player.sendMessage(configManager.getMessage("bet-usage"));
+            new BetGUI(this.plugin, player).open();
             return true;
         }
 

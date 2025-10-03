@@ -3,11 +3,7 @@ package com.vortex.blackjack.commands.sub;
 import com.vortex.blackjack.BlackjackPlugin;
 import com.vortex.blackjack.config.ConfigManager;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.jetbrains.annotations.NotNull;
-
-import java.io.File;
 
 public class Reload extends SubCommand {
 
@@ -25,6 +21,9 @@ public class Reload extends SubCommand {
         }
 
         this.plugin.reloadConfig();
+        this.plugin.getGuiConfig().reload();
+        this.plugin.getMessagesConfig().reload();
+        this.plugin.getChipsConfig().reload();
 
         // todo; pls reload messages & chips
         configManager.reload();
