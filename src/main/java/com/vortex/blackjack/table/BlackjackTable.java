@@ -617,7 +617,7 @@ public class BlackjackTable {
         } else {
             // Loss - use the increment method which also handles streaks
             stats.incrementLosses();
-            stats.addWinnings(winnings); // winnings will be negative
+            stats.addLosses(Math.abs(winnings)); // winnings will be negative
             
             // Check for bust
             List<Card> playerHand = playerHands.get(player);

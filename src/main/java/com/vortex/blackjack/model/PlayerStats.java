@@ -10,6 +10,7 @@ public class PlayerStats {
     private int currentStreak = 0;
     private int bestStreak = 0;
     private double totalWinnings = 0.0;
+    private double totalLosses = 0.0;
     private int blackjacks = 0;
     private int busts = 0;
 
@@ -20,6 +21,8 @@ public class PlayerStats {
     public int getCurrentStreak() { return currentStreak; }
     public int getBestStreak() { return bestStreak; }
     public double getTotalWinnings() { return totalWinnings; }
+    public double getTotalLosses() { return totalLosses; }
+    public double getTotalNet() { return totalWinnings - totalLosses; }
     public int getBlackjacks() { return blackjacks; }
     public int getBusts() { return busts; }
 
@@ -60,6 +63,10 @@ public class PlayerStats {
         totalWinnings += amount;
     }
 
+    public synchronized void addLosses(double amount) {
+        totalLosses += amount;
+    }
+
     // Setters for loading from config
     public void setHandsWon(int handsWon) { this.handsWon = handsWon; }
     public void setHandsLost(int handsLost) { this.handsLost = handsLost; }
@@ -67,6 +74,7 @@ public class PlayerStats {
     public void setCurrentStreak(int currentStreak) { this.currentStreak = currentStreak; }
     public void setBestStreak(int bestStreak) { this.bestStreak = bestStreak; }
     public void setTotalWinnings(double totalWinnings) { this.totalWinnings = totalWinnings; }
+    public void setTotalLosses(double totalLosses) { this.totalLosses = totalLosses; }
     public void setBlackjacks(int blackjacks) { this.blackjacks = blackjacks; }
     public void setBusts(int busts) { this.busts = busts; }
 }

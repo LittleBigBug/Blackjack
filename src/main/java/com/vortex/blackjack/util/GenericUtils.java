@@ -18,6 +18,7 @@ import org.bukkit.profile.PlayerProfile;
 import org.bukkit.profile.PlayerTextures;
 
 import java.net.URI;
+import java.text.DecimalFormat;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -27,6 +28,9 @@ import java.util.function.Consumer;
  * Generic utility functions to reduce code duplication across the plugin
  */
 public class GenericUtils {
+
+    public final static DecimalFormat decimalFormat = new DecimalFormat("#.##");
+    public final static DecimalFormat percentFormat = new DecimalFormat("#.#");
 
     /**
      * Generic table action handler that reduces code duplication
@@ -57,6 +61,7 @@ public class GenericUtils {
         stats.setCurrentStreak(statsConfig.getInt(path + "currentStreak", 0));
         stats.setBestStreak(statsConfig.getInt(path + "bestStreak", 0));
         stats.setTotalWinnings(statsConfig.getDouble(path + "totalWinnings", 0.0));
+        stats.setTotalLosses(statsConfig.getDouble(path + "totalLosses", 0.0));
         stats.setBlackjacks(statsConfig.getInt(path + "blackjacks", 0));
         stats.setBusts(statsConfig.getInt(path + "busts", 0));
         
@@ -75,6 +80,7 @@ public class GenericUtils {
         statsConfig.set(path + "currentStreak", stats.getCurrentStreak());
         statsConfig.set(path + "bestStreak", stats.getBestStreak());
         statsConfig.set(path + "totalWinnings", stats.getTotalWinnings());
+        statsConfig.set(path + "totalLosses", stats.getTotalLosses());
         statsConfig.set(path + "blackjacks", stats.getBlackjacks());
         statsConfig.set(path + "busts", stats.getBusts());
     }
@@ -146,6 +152,8 @@ public class GenericUtils {
         player.sendMessage(configManager.formatMessage("stats-current-streak", "value", stats.getCurrentStreak()));
         player.sendMessage(configManager.formatMessage("stats-best-streak", "value", stats.getBestStreak()));
         player.sendMessage(configManager.formatMessage("stats-total-winnings", "value", String.format("%.2f", stats.getTotalWinnings())));
+        player.sendMessage(configManager.formatMessage("stats-total-losses", "value", String.format("%.2f", stats.getTotalLosses())));
+        player.sendMessage(configManager.formatMessage("stats-total-net", "value", String.format("%.2f", stats.getTotalNet())));
     }
     
     /**
@@ -219,6 +227,19 @@ public class GenericUtils {
             meta.setOwnerProfile(profile);
         } catch (Throwable throwable) {
             throwable.printStackTrace();
+        }
+    }
+
+    /**
+     * Format money values with appropriate suffixes
+     */
+    public static String formatMoney(double amount) {
+        if (amount >= 1_000_000) {
+            return "$" + decimalFormat.format(amount / 1_000_000) + "M";
+        } else if (amount >= 1_000) {
+            return "$" + decimalFormat.format(amount / 1_000) + "K";
+        } else {
+            return "$" + decimalFormat.format(amount);
         }
     }
 

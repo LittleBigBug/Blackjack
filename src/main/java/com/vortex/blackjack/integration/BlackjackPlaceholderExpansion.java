@@ -22,8 +22,6 @@ import java.text.DecimalFormat;
 public class BlackjackPlaceholderExpansion extends PlaceholderExpansion {
     
     private final BlackjackPlugin plugin;
-    private final DecimalFormat decimalFormat = new DecimalFormat("#.##");
-    private final DecimalFormat percentFormat = new DecimalFormat("#.#");
     
     // Cache for stats to avoid reading file too frequently
     private FileConfiguration cachedStatsConfig;
@@ -123,10 +121,12 @@ public class BlackjackPlaceholderExpansion extends PlaceholderExpansion {
             case "busts" -> String.valueOf(stats.getBusts());
             case "current_streak" -> String.valueOf(stats.getCurrentStreak());
             case "best_streak" -> String.valueOf(stats.getBestStreak());
-            case "win_rate" -> percentFormat.format(stats.getWinRate());
-            case "win_rate_raw" -> decimalFormat.format(stats.getWinRate() / 100);
-            case "total_winnings" -> decimalFormat.format(stats.getTotalWinnings());
-            case "total_winnings_formatted" -> formatMoney(stats.getTotalWinnings());
+            case "win_rate" -> GenericUtils.percentFormat.format(stats.getWinRate());
+            case "win_rate_raw" -> GenericUtils.decimalFormat.format(stats.getWinRate() / 100);
+            case "total_winnings" -> GenericUtils.decimalFormat.format(stats.getTotalWinnings());
+            case "total_winnings_formatted" -> GenericUtils.formatMoney(stats.getTotalWinnings());
+            case "total_losses" -> GenericUtils.decimalFormat.format(stats.getTotalLosses());
+            case "total_losses_formatted" -> GenericUtils.formatMoney(stats.getTotalLosses());
             case "has_played" -> stats.getTotalHands() > 0 ? "true" : "false";
             default -> "0";
         };
@@ -219,15 +219,15 @@ public class BlackjackPlaceholderExpansion extends PlaceholderExpansion {
         
         return switch (param) {
             case "current" -> currentBet != null ? String.valueOf(currentBet) : "0";
-            case "current_formatted" -> currentBet != null ? formatMoney(currentBet) : "$0";
+            case "current_formatted" -> currentBet != null ? GenericUtils.formatMoney(currentBet) : "$0";
             case "has_bet" -> currentBet != null && currentBet > 0 ? "true" : "false";
             case "persistent" -> persistentBet != null ? String.valueOf(persistentBet) : "0";
-            case "persistent_formatted" -> persistentBet != null ? formatMoney(persistentBet) : "$0";
+            case "persistent_formatted" -> persistentBet != null ? GenericUtils.formatMoney(persistentBet) : "$0";
             case "has_persistent" -> persistentBet != null && persistentBet > 0 ? "true" : "false";
             case "min_bet" -> String.valueOf(plugin.getConfigManager().getMinBet());
             case "max_bet" -> String.valueOf(plugin.getConfigManager().getMaxBet());
-            case "min_bet_formatted" -> formatMoney(plugin.getConfigManager().getMinBet());
-            case "max_bet_formatted" -> formatMoney(plugin.getConfigManager().getMaxBet());
+            case "min_bet_formatted" -> GenericUtils.formatMoney(plugin.getConfigManager().getMinBet());
+            case "max_bet_formatted" -> GenericUtils.formatMoney(plugin.getConfigManager().getMaxBet());
             default -> "0";
         };
     }
@@ -244,11 +244,11 @@ public class BlackjackPlaceholderExpansion extends PlaceholderExpansion {
         return switch (param) {
             case "balance" -> {
                 double balance = plugin.getEconomyProvider().getBalance(player.getUniqueId()).doubleValue();
-                yield decimalFormat.format(balance);
+                yield GenericUtils.decimalFormat.format(balance);
             }
             case "balance_formatted" -> {
                 double balance = plugin.getEconomyProvider().getBalance(player.getUniqueId()).doubleValue();
-                yield formatMoney(balance);
+                yield GenericUtils.formatMoney(balance);
             }
             case "can_afford_min" -> {
                 double balance = plugin.getEconomyProvider().getBalance(player.getUniqueId()).doubleValue();
@@ -260,18 +260,5 @@ public class BlackjackPlaceholderExpansion extends PlaceholderExpansion {
             }
             default -> "0";
         };
-    }
-    
-    /**
-     * Format money values with appropriate suffixes
-     */
-    private String formatMoney(double amount) {
-        if (amount >= 1_000_000) {
-            return "$" + decimalFormat.format(amount / 1_000_000) + "M";
-        } else if (amount >= 1_000) {
-            return "$" + decimalFormat.format(amount / 1_000) + "K";
-        } else {
-            return "$" + decimalFormat.format(amount);
-        }
     }
 }
