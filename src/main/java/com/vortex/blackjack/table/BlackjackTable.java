@@ -3,6 +3,7 @@ package com.vortex.blackjack.table;
 import com.vortex.blackjack.BlackjackPlugin;
 import com.vortex.blackjack.config.ConfigManager;
 import com.vortex.blackjack.game.BlackjackEngine;
+import com.vortex.blackjack.gui.bet.BetGUI;
 import com.vortex.blackjack.model.Card;
 import com.vortex.blackjack.model.Deck;
 import com.vortex.blackjack.util.ChatUtils;
@@ -35,6 +36,7 @@ public class BlackjackTable {
     private final Set<Player> finishedPlayers = ConcurrentHashMap.newKeySet();
     private final Set<Player> doubleDownPlayers = ConcurrentHashMap.newKeySet();
     private boolean gameInProgress = false;
+    private boolean readyToPlay = false;
     private Player currentPlayer;
     private List<Card> dealerHand = new ArrayList<>();
     private Deck deck = new Deck();
@@ -60,12 +62,17 @@ public class BlackjackTable {
         this.centerLoc = centerLoc;
 
         this.createTableModels();
+        readyToPlay = true;
     }
     
     /**
      * Add a player to this table
      */
     public boolean addPlayer(Player player) {
+        return this.addPlayer(player, -1);
+    }
+
+    public boolean addPlayer(Player player, int desiredSeat) {
         ChatUtils chatUtils = plugin.getChatUtils();
         TableManager tableManager = plugin.getTableManager();
         ConfigManager configManager = plugin.getConfigManager();
@@ -95,13 +102,17 @@ public class BlackjackTable {
                 player.sendMessage(configManager.getMessage("too-far"));
                 return false;
             }
-            
-            int seatNumber = getNextAvailableSeatNumber();
-            if (seatNumber == -1) {
+
+            int seatNumber = desiredSeat;
+
+            if (seatNumber < 0 || !this.seatAvailable(seatNumber))
+                seatNumber = this.getNextAvailableSeatNumber();
+
+            if (seatNumber < 0) {
                 player.sendMessage(configManager.getMessage("no-seats"));
                 return false;
             }
-            
+
             try {
                 // Add player to table
                 players.add(player);
@@ -117,9 +128,7 @@ public class BlackjackTable {
 
                 broadcastTableMessage(configManager.formatMessage("player-joined-table", "player", player.getName()));
 
-                // Show betting options if UX features enabled
-                if (configManager.areParticlesEnabled()) // Using as UX enabled check
-                    chatUtils.sendBettingOptions(player);
+                new BetGUI(this.plugin, player).open();
 
                 return true;
             } catch (Exception e) {
@@ -132,7 +141,7 @@ public class BlackjackTable {
                 tableManager.setPlayerTable(player, null);
                 
                 player.sendMessage(configManager.getMessage("join-error"));
-                plugin.getLogger().severe("Error adding player to table: " + e.getMessage());
+                plugin.getLogger().severe("Error adding player to table: " + e);
                 return false;
             }
         }
@@ -243,16 +252,16 @@ public class BlackjackTable {
         ConfigManager configManager = plugin.getConfigManager();
 
         synchronized (this) {
-            if (gameInProgress) {
+            if (gameInProgress || !readyToPlay) {
                 broadcastTableMessage(configManager.getMessage("game-in-progress"));
                 return;
             }
-            
+
             if (players.isEmpty()) {
                 broadcastTableMessage(configManager.getMessage("game-error-no-players"));
                 return;
             }
-            
+
             // Check if all players have placed bets
             java.util.Map<org.bukkit.entity.Player, Integer> playerBets = betManager.getPlayerBets();
             java.util.List<org.bukkit.entity.Player> playersWithoutBets = new java.util.ArrayList<>();
@@ -271,14 +280,15 @@ public class BlackjackTable {
                 broadcastTableMessage(configManager.getMessage("game-error-all-must-bet"));
                 return;
             }
-            
+
             // Initialize game
+            readyToPlay = false;
             gameInProgress = true;
             deck = new Deck();
             clearAllCardDisplays();
             finishedPlayers.clear();
             doubleDownPlayers.clear();
-            
+
             // Deal initial cards (2 per player)
             for (Player player : players) {
                 List<Card> hand = new ArrayList<>();
@@ -287,17 +297,17 @@ public class BlackjackTable {
                 playerHands.put(player, hand);
                 updatePlayerCardDisplays(player, hand);
             }
-            
+
             // Deal dealer cards
             dealerHand = new ArrayList<>();
             dealerHand.add(deck.drawCard());
             dealerHand.add(deck.drawCard());
             updateDealerDisplays();
-            
+
             // Start first player's turn
             currentPlayer = players.get(0);
             broadcastTableMessage(configManager.formatMessage("game-started", "player", currentPlayer.getName()));
-            
+
             // Send interactive turn message (doubledown available on first turn)
             chatUtils.sendGameActionBar(currentPlayer, true);
         }
@@ -311,9 +321,7 @@ public class BlackjackTable {
         ConfigManager configManager = plugin.getConfigManager();
 
         synchronized (this) {
-            if (!gameInProgress || !player.equals(currentPlayer)) {
-                return;
-            }
+            if (!gameInProgress || !player.equals(currentPlayer)) return;
             
             List<Card> hand = playerHands.get(player);
             Card newCard = deck.drawCard();
@@ -347,9 +355,7 @@ public class BlackjackTable {
      */
     public void stand(Player player) {
         synchronized (this) {
-            if (!gameInProgress || !player.equals(currentPlayer)) {
-                return;
-            }
+            if (!gameInProgress || !player.equals(currentPlayer)) return;
             
             finishedPlayers.add(player);
             int value = gameEngine.calculateHandValue(playerHands.get(player));
@@ -467,22 +473,19 @@ public class BlackjackTable {
 
         synchronized (this) {
             if (!gameInProgress) return;
+            gameInProgress = false;
             
             // Dealer logic
             boolean anyValidPlayers = players.stream()
                 .anyMatch(p -> !gameEngine.isBusted(playerHands.get(p)));
             
-            if (anyValidPlayers) {
-                while (gameEngine.dealerShouldHit(dealerHand, configManager.shouldHitSoft17())) {
+            if (anyValidPlayers)
+                while (gameEngine.dealerShouldHit(dealerHand, configManager.shouldHitSoft17()))
                     dealerHand.add(deck.drawCard());
-                }
-            }
-            
-            // Set game as finished BEFORE showing final dealer cards
-            gameInProgress = false;
             
             // Update dealer displays and show final hand with cards and value
-            updateDealerDisplays();
+            this.updateDealerDisplays();
+
             int dealerValue = gameEngine.calculateHandValue(dealerHand);
             String dealerHandDisplay = formatHand(dealerHand);
             String dealerValueDisplay = formatHandValue(dealerValue);
@@ -490,13 +493,9 @@ public class BlackjackTable {
             
             // Handle payouts for each player with a small delay to let dealer cards show
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                for (Player player : new ArrayList<>(players)) {
-                    if (player.isOnline()) {
-                        handlePayout(player, dealerValue);
-                    } else {
-                        removePlayer(player);
-                    }
-                }
+                for (Player player : new ArrayList<>(players))
+                    if (player.isOnline()) handlePayout(player, dealerValue);
+                    else removePlayer(player);
                 
                 // Reset game state immediately after payouts so new games can start
                 resetGameState();
@@ -512,6 +511,7 @@ public class BlackjackTable {
     }
     
     private void resetGameState() {
+        readyToPlay = true;
         currentPlayer = null;
         finishedPlayers.clear();
         doubleDownPlayers.clear();
@@ -612,6 +612,11 @@ public class BlackjackTable {
     }
     
     // Helper methods
+    private boolean seatAvailable(int seat) {
+        if (seat > plugin.getConfigManager().getMaxPlayers()) return false;
+        return !playerSeats.containsValue(seat);
+    }
+
     private int getNextAvailableSeatNumber() {
         Set<Integer> takenSeats = new HashSet<>(playerSeats.values());
         for (int i = 0; i < plugin.getConfigManager().getMaxPlayers(); i++)
@@ -806,31 +811,31 @@ public class BlackjackTable {
         float fScale = plugin.getConfigManager().getCardScale();
         Vector3f offset = new Vector3f(0.0f, 0.0f, 0.0f);
         Vector3f scale = new Vector3f(fScale, fScale, fScale);
+        float yawRotation = (float) switch (seatNumber) {
+            case 0 -> (-Math.PI / 2); // 270
+            case 1 -> Math.toRadians(206);
+            case 2 -> Math.PI; // 180
+            case 3 -> Math.toRadians(154);
+            case 4 -> (Math.PI / 2); // 90
+            default -> 0;
+        };
 
-        if (isDealer) {
-            float yRotation = switch (seatNumber) {
-                case 0 -> (float) (-Math.PI / 2);
-                case 1 -> (float) Math.PI;
-                case 2 -> (float) (Math.PI / 2);
-                case 3 -> 0.0f;
-                case 4 -> 0.0f;
-                default -> 0.0f;
-            };
-
+        if (isDealer)
             return new Transformation(
                     offset,
-                    new AxisAngle4f(yRotation, 0.0f, 1.0f, 0.0f),
+                    new AxisAngle4f(yawRotation, 0.0f, 1.0f, 0.0f),
                     scale,
                     new AxisAngle4f((float) Math.toRadians(15.0), 1.0f, 0.0f, 0.0f)
             );
-        }
 
         float xRotation = (float) (Math.PI / 2);
-        float zRotation = switch (seatNumber) {
-            case 2 -> (float) Math.PI;
-            case 1, 3 -> (float) Math.toRadians(26);
-            case 0, 4 -> (float) (Math.PI / 2);
-            default -> 0.0f;
+        float zRotation = (float) switch (seatNumber) {
+            case 0 -> (Math.PI / 2); // 90
+            case 1 -> Math.toRadians(154);
+            case 2 -> Math.PI; // 180
+            case 3 -> Math.toRadians(206);
+            case 4 -> -(Math.PI / 2); // 270
+            default -> 0;
         };
 
         return new Transformation(
@@ -941,6 +946,9 @@ public class BlackjackTable {
 
         Location loc = seatLocation.clone().add(0.0, -1.6f, 0.0);
 
+        float yaw = (loc.getYaw() + 180) % 360;
+        loc.setYaw(yaw);
+
         return world.spawn(loc, ArmorStand.class, e -> {
             e.setSilent(true);
             e.setGravity(false);
@@ -973,6 +981,7 @@ public class BlackjackTable {
         this.interactionEntity = this.createTableInteraction();
     }
 
+    // todo; hitting immediately after 21 results in bugged game
     private Vector3f getCardTranslation(int i, int seatNumber, int deckSize, boolean isDealer) {
         ConfigManager configManager = plugin.getConfigManager();
         double cardSpacing = configManager.getCardSpacing();
@@ -980,25 +989,20 @@ public class BlackjackTable {
         int sizeCap = deckSize - 1;
 
         float dlrOffset = isDealer ? 0.18f : 0f;
+        float cardOffset = (float) (i * cardSpacing - sizeCap * cardSpacing / 2.0);
 
-        float xOffset = 0.0f;
+        float xOffset = switch (seatNumber) {
+            case 0 -> -1.35f - dlrOffset;
+            case 1 -> cardOffset - 0.85f;
+            case 2 -> cardOffset - 0.5f;
+            case 3 -> cardOffset - 0.15f;
+            case 4 -> 0.35f + dlrOffset;
+            default -> 0.0f;
+        };
         float zOffset = switch (seatNumber) {
-            case 0 -> {
-                xOffset = -1.35f - dlrOffset;
-                yield (float) (i * cardSpacing - sizeCap * cardSpacing / 2.0) - 0.47f;
-            }
-            case 1 -> {
-                xOffset = (float) (i * cardSpacing - sizeCap * cardSpacing / 2.0);
-                yield (float) 1;
-            }
-            case 2 -> {
-                xOffset = (float) (-1);
-                yield (float) (-(i * cardSpacing) + sizeCap * cardSpacing / 2.0);
-            }
-            case 3 -> {
-                xOffset = (float) (-(i * cardSpacing) + sizeCap * cardSpacing / 2.0);
-                yield (float) (-1);
-            }
+            case 0, 4 -> cardOffset - 0.47f; // done
+            case 1, 3 -> -1.2f - dlrOffset;
+            case 2 -> -1.35f - dlrOffset; // done
             default -> 0.0f;
         };
 
@@ -1196,8 +1200,8 @@ public class BlackjackTable {
     }
 
     public boolean canStartGame() {
-        if (gameInProgress || players.isEmpty()) return false;
-        
+        if (gameInProgress || !readyToPlay || players.isEmpty()) return false;
+
         // Check if all players have bets
         java.util.Map<Player, Integer> playerBets = this.plugin.getBetManager().getPlayerBets();
         for (Player player : players) {

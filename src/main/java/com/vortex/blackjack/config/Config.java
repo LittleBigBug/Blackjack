@@ -1,5 +1,6 @@
-package com.vortex.blackjack;
+package com.vortex.blackjack.config;
 
+import com.vortex.blackjack.BlackjackPlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 

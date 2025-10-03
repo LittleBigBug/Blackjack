@@ -55,16 +55,13 @@ public class BlackjackEngine {
      */
     public boolean dealerShouldHit(List<Card> hand, boolean hitSoft17) {
         int value = calculateHandValue(hand);
-        
-        if (value < 17) {
-            return true;
-        }
-        
-        if (value == 17 && hitSoft17) {
+
+        if (value < 17) return true;
+
+        if (value == 17 && hitSoft17)
             // Check if it's a soft 17 (contains an Ace counted as 11)
             return isSoft17(hand);
-        }
-        
+
         return false;
     }
 

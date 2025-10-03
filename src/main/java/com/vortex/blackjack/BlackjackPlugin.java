@@ -4,14 +4,12 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.PacketEventsAPI;
 import com.github.retrooper.packetevents.event.EventManager;
 import com.vortex.blackjack.commands.BlackjackCommand;
+import com.vortex.blackjack.config.Config;
 import com.vortex.blackjack.config.ConfigManager;
 import com.vortex.blackjack.economy.EconomyProvider;
 import com.vortex.blackjack.economy.VaultEconomyProvider;
 import com.vortex.blackjack.integration.BlackjackPlaceholderExpansion;
-import com.vortex.blackjack.listener.ChatListener;
-import com.vortex.blackjack.listener.InteractListener;
-import com.vortex.blackjack.listener.PlayerListener;
-import com.vortex.blackjack.listener.PlayerInputPacketListener;
+import com.vortex.blackjack.listener.*;
 import com.vortex.blackjack.model.PlayerStats;
 import com.vortex.blackjack.table.BetManager;
 import com.vortex.blackjack.table.TableManager;
@@ -21,9 +19,11 @@ import com.vortex.blackjack.util.GenericUtils;
 import com.vortex.blackjack.util.VersionChecker;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -53,10 +53,14 @@ public class BlackjackPlugin extends JavaPlugin  {
     
     // Player data - thread-safe collections
     private final Map<UUID, PlayerStats> playerStats = new ConcurrentHashMap<>();
-    
+
+    public final NamespacedKey chipNameKey = new NamespacedKey(this, "chipName");
+    public final NamespacedKey chipPriceKey = new NamespacedKey(this, "chipPrice");
+
     // Files
     private File statsFile;
 
+    private Config guiConfig;
     private Config chipsConfig;
     private Config messagesConfig;
     private Config tablesData;
@@ -71,6 +75,7 @@ public class BlackjackPlugin extends JavaPlugin  {
     public void onEnable() {
         saveDefaultConfig();
 
+        this.guiConfig = new Config(this, "gui.yml");
         this.chipsConfig = new Config(this, "chips.yml");
         this.messagesConfig = new Config(this, "messages.yml");
         this.tablesData = new Config(this, "data/tables.yml");
@@ -114,9 +119,12 @@ public class BlackjackPlugin extends JavaPlugin  {
         eventManager.registerListener(new PlayerInputPacketListener(this));
 
         // Register Bukkit events
-        getServer().getPluginManager().registerEvents(new ChatListener(this), this);
-        getServer().getPluginManager().registerEvents(new InteractListener(this), this);
-        getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
+        PluginManager pluginManager = getServer().getPluginManager();
+
+        pluginManager.registerEvents(new ChatListener(this), this);
+        pluginManager.registerEvents(new InventoryListener(this), this);
+        pluginManager.registerEvents(new InteractListener(this), this);
+        pluginManager.registerEvents(new PlayerListener(this), this);
         
         // Register commands
         PluginCommand cmd = this.getCommand("blackjack");
@@ -214,6 +222,7 @@ public class BlackjackPlugin extends JavaPlugin  {
     public AsyncUtils getAsyncUtils() { return asyncUtils; }
     public BetManager getBetManager() { return betManager; }
 
+    public Config getGuiConfig() { return guiConfig; }
     public Config getChipsConfig() { return chipsConfig; }
     public Config getMessagesConfig() { return messagesConfig; }
     public Config getTablesData() { return tablesData; }
@@ -223,4 +232,7 @@ public class BlackjackPlugin extends JavaPlugin  {
     public File getStatsFile() { return statsFile; }
     
     public VersionChecker getVersionChecker() { return versionChecker; }
+
+    public NamespacedKey getChipNameKey() { return chipNameKey; }
+    public NamespacedKey getChipPriceKey() { return chipPriceKey; }
 }

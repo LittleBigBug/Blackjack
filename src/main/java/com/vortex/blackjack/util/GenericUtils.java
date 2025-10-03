@@ -1,15 +1,22 @@
 package com.vortex.blackjack.util;
 
+import com.google.gson.JsonParser;
 import com.vortex.blackjack.config.ConfigManager;
 import com.vortex.blackjack.model.PlayerStats;
 import com.vortex.blackjack.table.BlackjackTable;
 import com.vortex.blackjack.table.TableManager;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.TextComponent;
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.profile.PlayerProfile;
+import org.bukkit.profile.PlayerTextures;
 
+import java.net.URI;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -18,7 +25,7 @@ import java.util.function.Consumer;
  * Generic utility functions to reduce code duplication across the plugin
  */
 public class GenericUtils {
-    
+
     /**
      * Generic table action handler that reduces code duplication
      * for methods like hit, stand, doubledown, join, leave, start
@@ -175,4 +182,39 @@ public class GenericUtils {
         }
         return (Player) sender;
     }
+
+    public static String getURLFromTexture(String texture) {
+        // String decoded = new String(Base64.getDecoder().decode(texture));
+        // return new URL(decoded.substring("{\"textures\":{\"SKIN\":{\"url\":\"".length(), decoded.length() - "\"}}}".length()));
+
+        // Decode B64.
+        String decoded = new String(Base64.getDecoder().decode(texture));
+
+        // Get url from json.
+        return JsonParser.parseString(decoded).getAsJsonObject()
+                .getAsJsonObject("textures")
+                .getAsJsonObject("SKIN")
+                .get("url")
+                .getAsString();
+    }
+
+    public static void applySkin(SkullMeta meta, String texture, boolean isUrl) {
+        applySkin(meta, UUID.randomUUID(), texture, isUrl);
+    }
+
+    public static void applySkin(SkullMeta meta, UUID uuid, String texture, boolean isUrl) {
+        try {
+            PlayerProfile profile = Bukkit.createPlayerProfile(uuid, "");
+
+            PlayerTextures textures = profile.getTextures();
+            String url = isUrl ? "http://textures.minecraft.net/texture/" + texture : getURLFromTexture(texture);
+            textures.setSkin(new URI(url).toURL());
+
+            profile.setTextures(textures);
+            meta.setOwnerProfile(profile);
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
+        }
+    }
+
 }

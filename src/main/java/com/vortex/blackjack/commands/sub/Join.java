@@ -26,9 +26,18 @@ public class Join extends SubCommand {
             return true;
         }
 
+        int desiredSeat = -1;
+        if (args.length > 1)
+            try {
+                desiredSeat = Integer.parseInt(args[1]) - 1;
+            } catch (NumberFormatException e) {
+                player.sendMessage(configManager.getMessage("invalid-seat"));
+                return true;
+            }
+
         BlackjackTable nearestTable = tableManager.findNearestTable(player.getLocation());
         if (nearestTable != null)
-            nearestTable.addPlayer(player);
+            nearestTable.addPlayer(player, desiredSeat);
         else
             player.sendMessage(configManager.getMessage("no-table-nearby"));
 

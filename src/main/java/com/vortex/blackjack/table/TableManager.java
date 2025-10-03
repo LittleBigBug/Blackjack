@@ -1,7 +1,7 @@
 package com.vortex.blackjack.table;
 
 import com.vortex.blackjack.BlackjackPlugin;
-import com.vortex.blackjack.Config;
+import com.vortex.blackjack.config.Config;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
