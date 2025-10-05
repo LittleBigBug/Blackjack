@@ -170,7 +170,7 @@ public class BlackjackTable {
             if (!players.contains(player)) return;
 
             // Check if player has a bet that needs to be refunded
-            boolean shouldRefundBet = gameInProgress && configManager.shouldRefundOnLeave();
+            boolean shouldRefundBet = gameInProgress && !isPlayerBusted(player) && !isPlayerFinished(player) && configManager.shouldRefundOnLeave();
             Integer betAmount = betManager.getPlayerBets().get(player);
 
             ArmorStand seatEnt = this.seatEntities.get(playerSeats.get(player));
