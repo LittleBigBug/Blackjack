@@ -90,7 +90,7 @@ public class TableManager {
 
         world.getChunkAt(centerLoc).load();
 
-        BlackjackTable table = new BlackjackTable(plugin, centerLoc);
+        BlackjackTable table = new BlackjackTable(plugin, id, centerLoc);
         tables.put(id, table);
 
         if (saveToConfig) {
@@ -117,8 +117,8 @@ public class TableManager {
     /**
      * Remove a table at the specified location
      */
-    public boolean removeTable(Location tableLoc) {
-        BlackjackTable table = tables.remove(tableLoc);
+    public boolean removeTable(int id) {
+        BlackjackTable table = tables.remove(id);
         if (table == null) return false;
         
         // Remove all players from the table
@@ -126,18 +126,12 @@ public class TableManager {
         table.cleanup();
         
         // Remove from config
-        String worldName = tableLoc.getWorld().getName();
-        int centerX = tableLoc.getBlockX();
-        int centerY = tableLoc.getBlockY();
-        int centerZ = tableLoc.getBlockZ();
-
-        if (plugin.getConfig().contains("tables." + worldName)) {
-            ConfigurationSection tablesSection = plugin.getConfig().getConfigurationSection("tables." + worldName);
-            String key = centerX + "_" + centerY + "_" + centerZ;
-            tablesSection.set(key, null);
-            plugin.saveConfig();
+        if (plugin.getConfig().contains("tables." + id)) {
+            Config tableStore = this.plugin.getTablesData();
+            tableStore.set("tables." + id, null);
+            tableStore.save();
         }
-        
+
         return true;
     }
     

@@ -4,6 +4,7 @@ import com.vortex.blackjack.BlackjackPlugin;
 import com.vortex.blackjack.config.ConfigManager;
 import com.vortex.blackjack.table.BlackjackTable;
 import com.vortex.blackjack.table.TableManager;
+import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -31,7 +32,7 @@ public class RemoveTable extends SubCommand {
         BlackjackTable nearestTable = tableManager.findNearestTable(player.getLocation());
 
         if (nearestTable != null) {
-            if (tableManager.removeTable(nearestTable.getCenterLocation()))
+            if (tableManager.removeTable(nearestTable.getId()))
                 player.sendMessage(configManager.getMessage("table-removed"));
             else
                 player.sendMessage(configManager.getMessage("table-remove-failed"));

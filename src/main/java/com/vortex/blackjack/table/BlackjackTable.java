@@ -27,6 +27,8 @@ public class BlackjackTable {
 
     private final BlackjackPlugin plugin;
     private final BlackjackEngine gameEngine;
+
+    private final int id;
     private final Location centerLoc;
     
     // Game state
@@ -56,7 +58,8 @@ public class BlackjackTable {
     private final Map<Player, Long> gameEndTimes = new ConcurrentHashMap<>();
     private BukkitTask autoLeaveTask;
     
-    public BlackjackTable(BlackjackPlugin plugin, Location centerLoc) {
+    public BlackjackTable(BlackjackPlugin plugin, int id, Location centerLoc) {
+        this.id = id;
         this.plugin = plugin;
         this.gameEngine = new BlackjackEngine();
         this.centerLoc = centerLoc;
@@ -1300,4 +1303,5 @@ public class BlackjackTable {
     }
 
     public Interaction getInteractionEntity() { return interactionEntity; }
+    public int getId() { return id; }
 }
