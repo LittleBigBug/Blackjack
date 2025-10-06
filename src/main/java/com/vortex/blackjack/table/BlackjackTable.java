@@ -170,7 +170,8 @@ public class BlackjackTable {
             if (!players.contains(player)) return;
 
             // Check if player has a bet that needs to be refunded
-            boolean shouldRefundBet = gameInProgress && !isPlayerBusted(player) && !isPlayerFinished(player) && configManager.shouldRefundOnLeave();
+            boolean alreadyFinished = isPlayerBusted(player) || isPlayerFinished(player);
+            boolean shouldRefundBet = gameInProgress && !alreadyFinished && configManager.shouldRefundOnLeave();
             Integer betAmount = betManager.getPlayerBets().get(player);
 
             ArmorStand seatEnt = this.seatEntities.get(playerSeats.get(player));
@@ -195,42 +196,35 @@ public class BlackjackTable {
                     player.sendMessage(configManager.getMessage("error-refund"));
                     plugin.getLogger().severe("Failed to refund bet for " + player.getName() + " when leaving mid-game");
                 }
-            } else if (gameInProgress && betAmount != null && betAmount > 0) {
+            } else if (gameInProgress && !alreadyFinished && betAmount != null && betAmount > 0) {
                 // Player left mid-game but refunds are disabled - remove bet without refunding
                 betManager.getPlayerBets().remove(player);
                 player.sendMessage(configManager.formatMessage("left-table-bet-forfeit", "amount", betAmount));
-            } else {
+            } else
                 player.sendMessage(configManager.getMessage("left-table"));
-            }
-            
+
             // Remove display entities
             List<ItemDisplay> cardDisplays = playerCardDisplays.remove(player);
-            if (cardDisplays != null) {
+            if (cardDisplays != null)
                 cardDisplays.forEach(display -> {
-                    if (display != null && !display.isDead()) {
+                    if (display != null && !display.isDead())
                         display.remove();
-                    }
                 });
-            }
             
             List<ItemDisplay> dealerDisplays = playerDealerDisplays.remove(player);
-            if (dealerDisplays != null) {
+            if (dealerDisplays != null)
                 dealerDisplays.forEach(display -> {
-                    if (display != null && !display.isDead()) {
+                    if (display != null && !display.isDead())
                         display.remove();
-                    }
                 });
-            }
             
             // Handle game state
-            if (players.isEmpty()) {
-                endGame();
-            } else if (gameInProgress && currentPlayer != null && currentPlayer.equals(player)) {
+            if (players.isEmpty()) endGame();
+            else if (gameInProgress && currentPlayer != null && currentPlayer.equals(player)) {
                 nextTurn();
                 broadcastTableMessage(configManager.formatMessage("player-left-during-turn", "player", player.getName(), "reason", reason));
-            } else {
+            } else
                 broadcastTableMessage(configManager.formatMessage("player-left-table", "player", player.getName(), "reason", reason));
-            }
         }
     }
     
