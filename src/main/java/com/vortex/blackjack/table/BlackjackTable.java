@@ -95,6 +95,13 @@ public class BlackjackTable {
                 player.sendMessage(configManager.getMessage("table-full"));
                 return false;
             }
+
+            BigDecimal minBet = BigDecimal.valueOf(plugin.getConfigManager().getMinBet());
+
+            if (!plugin.getEconomyProvider().hasEnough(player.getUniqueId(), minBet)) {
+                player.sendMessage(configManager.getMessage("join-insufficient-funds"));
+                return false;
+            }
             
             if (gameInProgress) {
                 player.sendMessage(configManager.getMessage("game-in-progress"));

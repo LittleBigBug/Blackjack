@@ -30,6 +30,7 @@ too-far: "&cYou are too far from the table to join!"
 no-seats: "&cNo available seats!"
 join-error: "&cError joining table. Please try again."
 game-in-progress: "&cCannot perform this action during an active game!"
+join-insufficient-funds: "&cYou don't have enough money to join!"
 
 # Betting
 bet-required: "&cYou must place a bet before the game can start! Use /bj bet <amount>"
