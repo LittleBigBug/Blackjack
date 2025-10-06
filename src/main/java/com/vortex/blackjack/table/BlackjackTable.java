@@ -76,7 +76,6 @@ public class BlackjackTable {
     }
 
     public boolean addPlayer(Player player, int desiredSeat) {
-        ChatUtils chatUtils = plugin.getChatUtils();
         TableManager tableManager = plugin.getTableManager();
         ConfigManager configManager = plugin.getConfigManager();
 
@@ -636,11 +635,14 @@ public class BlackjackTable {
         return !playerSeats.containsValue(seat);
     }
 
+    // Add players to the angled seats last
+    // todo; config
+    private static final int[] joinOrder = {2, 0, 4, 1, 3};
+
     private int getNextAvailableSeatNumber() {
         Set<Integer> takenSeats = new HashSet<>(playerSeats.values());
-        for (int i = 0; i < plugin.getConfigManager().getMaxPlayers(); i++)
-            if (!takenSeats.contains(i))
-                return i;
+        for (int seat : joinOrder)
+            if (!takenSeats.contains(seat)) return seat;
         return -1;
     }
 
