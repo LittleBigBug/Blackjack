@@ -61,9 +61,13 @@ public class BetGUI extends BaseGUI {
         PersistentDataContainer data = meta.getPersistentDataContainer();
         if (!data.has(this.plugin.getChipPriceKey())) return;
 
+        this.player.closeInventory();
+
         BlackjackTable table = this.plugin.getTableManager().getPlayerTable(this.player);
-        if (table == null) {
-            this.player.closeInventory();
+        if (table == null) return;
+
+        if (table.isGameInProgress()) {
+            player.sendMessage(this.plugin.getConfigManager().getMessage("bet-game-active"));
             return;
         }
 
@@ -74,7 +78,6 @@ public class BetGUI extends BaseGUI {
         this.madeBet = true;
 
         this.plugin.getBetManager().processBet(this.player, price);
-        this.player.closeInventory();
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.vortex.blackjack.commands.sub;
 import com.vortex.blackjack.BlackjackPlugin;
 import com.vortex.blackjack.config.ConfigManager;
 import com.vortex.blackjack.gui.bet.BetGUI;
+import com.vortex.blackjack.table.BlackjackTable;
 import com.vortex.blackjack.table.TableManager;
 import com.vortex.blackjack.util.GenericUtils;
 import org.bukkit.command.CommandSender;
@@ -22,8 +23,15 @@ public class Bet extends SubCommand {
         ConfigManager configManager = this.plugin.getConfigManager();
         TableManager tableManager = this.plugin.getTableManager();
 
-        if (tableManager.getPlayerTable(player) == null) {
+        BlackjackTable table = tableManager.getPlayerTable(player);
+
+        if (table == null) {
             player.sendMessage(configManager.getMessage("not-at-table"));
+            return true;
+        }
+
+        if (table.isGameInProgress()) {
+            player.sendMessage(configManager.getMessage("bet-game-active"));
             return true;
         }
 

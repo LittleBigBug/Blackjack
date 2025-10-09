@@ -33,6 +33,11 @@ public class PlayerInputPacketListener extends SimplePacketListenerAbstract {
             BlackjackTable table = this.plugin.getTableManager().getPlayerTable(player);
             if (table == null) return;
 
+            if (table.isGameInProgress()) {
+                player.sendMessage(this.plugin.getConfigManager().getMessage("bet-game-active"));
+                return;
+            }
+
             this.plugin.getServer().getScheduler().runTask(this.plugin, () ->
                 new BetGUI(this.plugin, player)
                         .onClose(e -> {
